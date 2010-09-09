@@ -1,38 +1,112 @@
 <?php
 
-require_once('AuthPlugin.php');
-
 # settings:
 #$wgRestAuthURL
 #$wgRestAuthService
 #$wgRestAuthServicePassword
 
-class RestAuthPlugin extends AuthPlugin {
-	function getCurlSession( $urlPath ) {
-		/**
-		 * Set authentication for a curl session
-		 */
-		global $wgRestAuthURL, 
-			$wgRestAuthService, $wgRestAuthServicePassword;
-		$url = $wgRestAuthURL . $urlPath;
-		$session = curl_init(); 
-		curl_setopt($session, CURLOPT_URL, $url);
-		curl_setopt($session, CURLOPT_HEADER, 1);
-		curl_setopt($session, CURLOPT_RETURNTRANSFER, 1);
-		curl_setopt($session, CURLOPT_TIMEOUT, 10 );
+require_once('AuthPlugin.php');
+$wgHooks['UserEffectiveGroups'][] = 'fnRestAuthUserEffectiveGroups';
+$wgHooks['UserAddGroup'][] = 'fnRestAuthUserAddGroup';
+$wgHooks['UserRemoveGroup'][] = 'fnRestAuthUserRemoveGroup';
+$wgHooks['UserGetAllGroups'][] = 'fnRestAuthGetAllGroups';
 
-		curl_setopt($session, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
-		curl_setopt($session, CURLOPT_USERPWD, 
-			$wgRestAuthService . ':' .$wgRestAuthServicePassword);
-		return $session;
+function fnRestAuthUserEffectiveGroups( $user, $groups ) {
+	$username = sanitizeUsername( $user->getName() );
+	$session = getCurlSession( '/groups/?user=' . $username);
+	$response = curl_exec($session);
+	$status = curl_getinfo( $session, CURLINFO_HTTP_CODE );
+	$header_size = curl_getinfo( $session, CURLINFO_HEADER_SIZE );
+	$body = substr( $response, $header_size );
+	curl_close( $session );
+
+	switch ( $status ) {
+		case 200:
+			$rest_groups = json_decode( $body );
+			foreach ($rest_groups as $value) {
+				if ( ! in_array( $value, $groups ) ) {
+					$groups[] = $value;
+				}
+			}
+			break;
+		# TODO: Error handling?
+	};
+
+	return true;
+}
+
+function fnRestAuthUserAddGroup( $user, $group, $saveLocal ) {
+	$username = sanitizeUsername( $user->getName() );
+	$session = getCurlSession( '/groups/' . $group . '/' );
+	$postData = 'user=' . $username . '&autocreate=true';
+	curl_setopt($session, CURLOPT_POST, true); 
+	curl_setopt($session, CURLOPT_POSTFIELDS, $postData);
+	
+	$response = curl_exec($session);
+	$status = curl_getinfo( $session, CURLINFO_HTTP_CODE );
+	#TODO: Error hanlding.
+	return true;
+}
+
+function fnRestAuthUserRemoveGroup( $user, $group, $saveLocal ) {
+	$username = sanitizeUsername( $user->getName() );
+	$session = getCurlSession( '/groups/' . $group . '/' . $username . '/' );
+	curl_setopt($session, CURLOPT_CUSTOMREQUEST, 'DELETE'); 
+
+	$response = curl_exec( $session );
+	$status = curl_getinfo( $session, CURLINFO_HTTP_CODE );
+	#TODO: Error handling
+	return true;
+}
+
+function getCurlSession( $urlPath ) {
+	/**
+	 * Set authentication for a curl session
+	 */
+	global $wgRestAuthURL, $wgRestAuthService, $wgRestAuthServicePassword;
+	$url = $wgRestAuthURL . $urlPath;
+	$session = curl_init(); 
+	curl_setopt($session, CURLOPT_URL, $url);
+	curl_setopt($session, CURLOPT_HEADER, 1);
+	curl_setopt($session, CURLOPT_RETURNTRANSFER, 1);
+	curl_setopt($session, CURLOPT_TIMEOUT, 10 );
+	curl_setopt($session, CURLOPT_HTTPHEADER, array(
+		'Content-Type: application/json',
+		'Accept: application/json',
+	));
+
+	curl_setopt($session, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
+	curl_setopt($session, CURLOPT_USERPWD, 
+		$wgRestAuthService . ':' .$wgRestAuthServicePassword);
+	return $session;
+}
+
+function fnRestAuthGetAllGroups( $user, $externalGroups ) {
+	print( "fnRestAuthGetAllGroups\n" );
+#	die();
+	$session = getCurlSession( '/groups/' );
+	$response = curl_exec($session);
+	$header_size = curl_getinfo( $session, CURLINFO_HEADER_SIZE );
+	$body = substr( $response, $header_size );
+	$groups = json_decode( $body );
+	foreach( $groups as $group ) {
+		$externalGroups[] = $group;
 	}
+	return true;
+}
+
+function sanitizeUsername( $username ) {
+	return urlencode( strtolower( $username ) );
+}
+
+class RestAuthPlugin extends AuthPlugin {
 
 	public function userExists ($username) {
 		/**
 		 * Verify that a user exists.
 		 */
-		$user = urlencode( strtolower( $username ) );
-		$session = $this->getCurlSession( '/users/' . $user . '/');
+		$user = sanitizeUsername( $username );
+		$session = getCurlSession( '/users/' . $user . '/');
 		curl_exec($session);
 		$status = curl_getinfo( $session, CURLINFO_HTTP_CODE );
 		switch ( $status ) {
@@ -49,7 +123,7 @@ class RestAuthPlugin extends AuthPlugin {
 		 * Check if a username+password pair is a valid login.
 		 */
 		$user = urlencode( strtolower( $username ) );
-		$session = $this->getCurlSession( '/users/' . $user . '/');
+		$session = getCurlSession( '/users/' . $user . '/');
 		
 		# set post data:
 		$postData = "password=" . urlencode( $password );
@@ -107,7 +181,7 @@ class RestAuthPlugin extends AuthPlugin {
 	public function setPassword ($user, $password) {
 		# Set the given password in the authentication database.
 		$user = urlencode( strtolower( $user->getName() ) );
-		$session = $this->getCurlSession( '/users/' . $user . '/');
+		$session = getCurlSession( '/users/' . $user . '/');
 		
 		# set post data:
 		$postData = "password=" . urlencode( $password );
@@ -144,11 +218,11 @@ class RestAuthPlugin extends AuthPlugin {
 
 	public function addUser ($user, $password, $email= '', $realname= '') {
 		# Add a user to the external authentication database.
-		$session = $this->getCurlSession( '/users/' );
+		$session = getCurlSession( '/users/' );
 		
 		# set post data:
 		$username= urlencode( strtolower( $user->getName() ) );
-		$postData = "username=" . $username . "&password=" . urlencode( $password );
+		$postData = "user=" . $username . "&password=" . urlencode( $password );
 		curl_setopt($session, CURLOPT_POST, true); 
 		curl_setopt($session, CURLOPT_POSTFIELDS, $postData);
 		
