@@ -5,140 +5,116 @@
 #$wgRestAuthService
 #$wgRestAuthServicePassword
 
-require_once('AuthPlugin.php');
+require_once( 'AuthPlugin.php' );
+require_once( '/usr/share/php-restauth/restauth.php' );
+
 $wgHooks['UserEffectiveGroups'][] = 'fnRestAuthUserEffectiveGroups';
 $wgHooks['UserAddGroup'][] = 'fnRestAuthUserAddGroup';
 $wgHooks['UserRemoveGroup'][] = 'fnRestAuthUserRemoveGroup';
 $wgHooks['UserGetAllGroups'][] = 'fnRestAuthGetAllGroups';
 
+$wgHooks['UserSetEmail'][] = 'fnRestAuthSetEmail';
+$wgHooks['UserGetEmail'][] = 'fnRestAuthGetEmail';
+
+function fnRestAuthSetEmail( $user, $mail ) {
+	//TODO: Set email
+}
+function fnRestAuthGetEmail( $user, $mail ) {
+	//TODO: Get email
+}
+
 function fnRestAuthUserEffectiveGroups( $user, $groups ) {
-	$username = sanitizeUsername( $user->getName() );
-	$session = getCurlSession( '/groups/?user=' . $username);
-	$response = curl_exec($session);
-	$status = curl_getinfo( $session, CURLINFO_HTTP_CODE );
-	$header_size = curl_getinfo( $session, CURLINFO_HEADER_SIZE );
-	$body = substr( $response, $header_size );
-	curl_close( $session );
+	#TODO: Error hanlding.
+	$conn = restauth_get_connection();
+	$rest_groups = RestAuthGetAllGroups( $conn, $user->getName() );
+	//TODO: whatever this returns?
 
-	switch ( $status ) {
-		case 200:
-			$rest_groups = json_decode( $body );
-			foreach ($rest_groups as $value) {
-				if ( ! in_array( $value, $groups ) ) {
-					$groups[] = $value;
-				}
-			}
-			break;
-		# TODO: Error handling?
-	};
-
+	foreach ($rest_groups as $group) {
+		if ( ! in_array( $group, $groups ) ) {
+			$groups[] = $group;
+		}
+	}
 	return true;
 }
 
 function fnRestAuthUserAddGroup( $user, $group, $saveLocal ) {
-	$username = sanitizeUsername( $user->getName() );
-	$session = getCurlSession( '/groups/' . $group . '/' );
-	$postData = 'user=' . $username . '&autocreate=true';
-	curl_setopt($session, CURLOPT_POST, true); 
-	curl_setopt($session, CURLOPT_POSTFIELDS, $postData);
-	
-	$response = curl_exec($session);
-	$status = curl_getinfo( $session, CURLINFO_HTTP_CODE );
 	#TODO: Error hanlding.
+	$conn = restauth_get_connection();
+	$group = RestAuthGroup( $conn, $group );
+	$group->remove_user( $user->getName() );
 	return true;
 }
 
 function fnRestAuthUserRemoveGroup( $user, $group, $saveLocal ) {
-	$username = sanitizeUsername( $user->getName() );
-	$session = getCurlSession( '/groups/' . $group . '/' . $username . '/' );
-	curl_setopt($session, CURLOPT_CUSTOMREQUEST, 'DELETE'); 
-
-	$response = curl_exec( $session );
-	$status = curl_getinfo( $session, CURLINFO_HTTP_CODE );
 	#TODO: Error handling
+	$conn = restauth_get_connection();
+	$group = RestAuthGroup( $conn, $group );
+	$group->remove_user( $user->getName() );
 	return true;
 }
 
-function getCurlSession( $urlPath ) {
-	/**
-	 * Set authentication for a curl session
-	 */
-	global $wgRestAuthURL, $wgRestAuthService, $wgRestAuthServicePassword;
-	$url = $wgRestAuthURL . $urlPath;
-	$session = curl_init(); 
-	curl_setopt($session, CURLOPT_URL, $url);
-	curl_setopt($session, CURLOPT_HEADER, 1);
-	curl_setopt($session, CURLOPT_RETURNTRANSFER, 1);
-	curl_setopt($session, CURLOPT_TIMEOUT, 10 );
-	curl_setopt($session, CURLOPT_HTTPHEADER, array(
-		'Content-Type: application/json',
-		'Accept: application/json',
-	));
-
-	curl_setopt($session, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
-	curl_setopt($session, CURLOPT_USERPWD, 
-		$wgRestAuthService . ':' .$wgRestAuthServicePassword);
-	return $session;
-}
-
 function fnRestAuthGetAllGroups( $user, $externalGroups ) {
-	print( "fnRestAuthGetAllGroups\n" );
-#	die();
-	$session = getCurlSession( '/groups/' );
-	$response = curl_exec($session);
-	$header_size = curl_getinfo( $session, CURLINFO_HEADER_SIZE );
-	$body = substr( $response, $header_size );
-	$groups = json_decode( $body );
-	foreach( $groups as $group ) {
+	#TODO: Error hanlding.
+	$conn = restauth_get_connection();
+	$rest_groups = RestAuthGetAllGroups( $conn );
+	foreach( $rest_groups as $group ) {
 		$externalGroups[] = $group;
 	}
 	return true;
 }
 
-function sanitizeUsername( $username ) {
-	return urlencode( strtolower( $username ) );
+/**
+ * Helper function to get a connection object to the RestAuth service.
+ */
+function restauth_get_connection() {
+	global $wgRestAuthHost, $wgRestAuthPort, $wgRestAuthService,
+		$wgRestAuthServicePassword;
+
+	if ( ! $wgRestAuthHost )
+		$wgRestAuthHost = 'localhost';
+	if ( ! $wgRestAuthPort )
+		$wgRestAuthPort = 80;
+	
+	return new RestAuthConnection( $wgRestAuthHost, $wgRestAuthPort,
+		$wgRestAuthService, $wgRestAuthServicePassword );
 }
 
 class RestAuthPlugin extends AuthPlugin {
 
+	public function __construct() {
+		$this->conn = restauth_get_connection();
+	}
+
+	/**
+	 * Verify that a user exists.
+	 */
 	public function userExists ($username) {
-		/**
-		 * Verify that a user exists.
-		 */
-		$user = sanitizeUsername( $username );
-		$session = getCurlSession( '/users/' . $user . '/');
-		curl_exec($session);
-		$status = curl_getinfo( $session, CURLINFO_HTTP_CODE );
-		switch ( $status ) {
-			case 200: 
-				return true;
-				break;
-			default:
-				return false;
+		try {
+			RestAuthGetUser( $this->conn, $username );
+			return true;
+		} catch ( RestAuthUserNotFound $e ) {
+			return false;
 		}
 	}
 	
+	/** 
+	 * Check if a username+password pair is a valid login.
+	 */
 	public function authenticate ($username, $password) {
-		/** 
-		 * Check if a username+password pair is a valid login.
-		 */
-		$user = urlencode( strtolower( $username ) );
-		$session = getCurlSession( '/users/' . $user . '/');
-		
-		# set post data:
-		$postData = "password=" . urlencode( $password );
-		curl_setopt($session, CURLOPT_POST, 1); 
-		curl_setopt($session, CURLOPT_POSTFIELDS, $postData);
-		
-		$data = curl_exec($session);
-		$status = curl_getinfo( $session, CURLINFO_HTTP_CODE );
-		curl_close($session); 
-		switch ( $status ) {
-			case 200: 
+		$user = new RestAuthUser( $this->conn, $username );
+		try {
+			if ( $user->verify_password( $password ) ) {
+				print( 'verified' );
 				return true;
-				break;
-			default:
+			} else {
+				print( 'not verified' );
 				return false;
+			}
+		} catch ( RestAuthUnauthorized $e ) {
+			wfDebug( 'Could not authenticate against the RestAuth service, check $wgRestAuthService and $wgRestAuthServicePassword and if that service exists in the RestAuth webservice.' );
+			throw new MWException( 'Could not contact the authentication server, please try again later.' );
+		} catch ( RestAuthInternalServerError $e ) {
+			throw new MWException( 'The authentication service is temporarily unavailable. Please try again later.' );
 		}
 	}
 
@@ -179,28 +155,9 @@ class RestAuthPlugin extends AuthPlugin {
 	}
 	
 	public function setPassword ($user, $password) {
-		# Set the given password in the authentication database.
-		$user = urlencode( strtolower( $user->getName() ) );
-		$session = getCurlSession( '/users/' . $user . '/');
-		
-		# set post data:
-		$postData = "password=" . urlencode( $password );
-		curl_setopt($session, CURLOPT_CUSTOMREQUEST, 'PUT'); 
-		curl_setopt($session, CURLOPT_HTTPHEADER, array(
-			'Content-Length: ' . strlen($postData) ) ); 
-		curl_setopt($session, CURLOPT_POSTFIELDS, $postData);
-		
-		$data = curl_exec($session);
-		$status = curl_getinfo( $session, CURLINFO_HTTP_CODE );
-		curl_close($session); 
-
-		switch ( $status ) {
-			case 200:
-				return true;
-				break;
-			default:
-				return false;
-		}
+		$user = new RestAuthUser( $this->conn, $user->getName() );
+		$user->set_password( $password );
+		return true;
 	}
 	
 /*	function updateExternalDB ($user) {
@@ -217,25 +174,11 @@ class RestAuthPlugin extends AuthPlugin {
 	}
 
 	public function addUser ($user, $password, $email= '', $realname= '') {
-		# Add a user to the external authentication database.
-		$session = getCurlSession( '/users/' );
-		
-		# set post data:
-		$username= urlencode( strtolower( $user->getName() ) );
-		$postData = "user=" . $username . "&password=" . urlencode( $password );
-		curl_setopt($session, CURLOPT_POST, true); 
-		curl_setopt($session, CURLOPT_POSTFIELDS, $postData);
-		
-		$data = curl_exec($session);
-		$status = curl_getinfo( $session, CURLINFO_HTTP_CODE );
-		curl_close($session); 
-
-		switch ( $status ) {
-			case 201:
-				return true;
-				break;
-			default:
-				return false;
+		try {
+			RestAuthCreateUser( $this->conn, $user->getName(), $password );
+			return true;
+		} catch ( RestAuthUserExists $e ) {
+			throw new ErrorPageError( "error-user-exists-header", 'error-user-exists-body' );
 		}
 	}
 
