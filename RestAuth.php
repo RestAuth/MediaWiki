@@ -1,4 +1,32 @@
 <?php
+
+global $wgRestAuthIgnoredOptions, $wgRestAuthGlobalOptions;
+// default settings;
+if ( ! $wgRestAuthHost ) $wgRestAuthHost = 'localhost';
+if ( ! $wgRestAuthPort ) $wgRestAuthPort = 443;
+if ( ! $wgRestAuthIgnoredOptions ) {
+	$wgRestAuthIgnoredOptions = array(
+		"watchlisttoken",
+	);
+}
+
+if ( $wgRestAuthGlobalOptions ) {
+	if ( ! array_key_exists( 'language', $wgRestAuthGlobalOptions ) )
+		$wgRestAuthGlobalOptions['language'] = true;
+		$wgRestAuthGlobalOptions['real name'] = true;
+		$wgRestAuthGlobalOptions['email'] = true;
+		$wgRestAuthGlobalOptions['email confirmed'] = true;
+} else {
+	// default, if not set at all
+	$wgRestAuthGlobalOptions = array(
+		'language' => true,
+		'real name' => true,
+		'email' => true,
+		'email confirmed' => true,
+	);
+}
+
+// includes:
 require_once( '/usr/share/php-restauth/restauth.php' );
 require_once( dirname(__FILE__) . '/RestAuthPlugin.php' );
 
@@ -11,4 +39,11 @@ $wgExtensionCredits['other'][] = array(
 
 
 $wgExtensionMessagesFiles['myextension'] = dirname( __FILE__ ) . '/RestAuth.i18n.php';
+
+$wgExceptionHooks[] = array( 'RestAuthUnauthorized', 'testfunction' );
+
+function testfunction( $what ) {
+	die( "testfunction called." );
+}
+
 ?>
