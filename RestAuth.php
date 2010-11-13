@@ -29,6 +29,7 @@ if ( $wgRestAuthGlobalOptions ) {
 // includes:
 require_once( '/usr/share/php-restauth/restauth.php' );
 require_once( dirname(__FILE__) . '/RestAuthPlugin.php' );
+require_once( dirname(__FILE__) . '/RestAuthError.php' );
 
 $wgExtensionCredits['other'][] = array(
 	'name' => 'RestAuth',
@@ -39,11 +40,5 @@ $wgExtensionCredits['other'][] = array(
 
 
 $wgExtensionMessagesFiles['myextension'] = dirname( __FILE__ ) . '/RestAuth.i18n.php';
-
-$wgExceptionHooks[] = array( 'RestAuthUnauthorized', 'testfunction' );
-
-function testfunction( $what ) {
-	die( "testfunction called." );
-}
 
 ?>
