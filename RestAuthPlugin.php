@@ -32,11 +32,6 @@ function fnRestAuthGetOptionName( $option ) {
 	}
 }
 
-function fnRestAuthHandleException( $e ) {
-	$prefix = strtolower( get_class( $e ) );
-	throw new ErrorPageError( $prefix . '-header', $prefix . '-body' );
-}
-
 function fnRestAuthSaveSettings( $user ) {
 	global $wgRestAuthIgnoredOptions, $wgRestAuthGlobalOptions;
 	$conn = restauth_get_connection();
@@ -89,7 +84,7 @@ function fnRestAuthSaveSettings( $user ) {
 
 		return true;
 	} catch (RestAuthException $e) {
-		fnRestAuthHandleException( $e );
+		throw new MWRestAuthError( $e );
 	}
 }
 
@@ -133,7 +128,7 @@ function fnRestAuthSaveOptions( $user, $options ) {
 			}
 		}
 	} catch (RestAuthException $e) {
-		fnRestAuthHandleException( $e );
+		throw new MWRestAuthError( $e );
 	}
 
 	// return true so we still save to the database. This way we still have
@@ -207,7 +202,7 @@ function fnRestAuthLoadOptions( $user, $options ) {
 function fnRestAuthUserEffectiveGroups( $user, $groups ) {
 	$conn = restauth_get_connection();
 	try {
-		$rest_groups = RestAuthGetAllGroups( $conn, $user->getName() );
+		$rest_groups = RestAuthGroup::get_all( $conn, $user->getName() );
 	} catch (RestAuthException $e) {
 		// if this is the case, we just don't add any groups.
 		wfDebug( "Unable to get groups from auth-service: " . $e );
@@ -231,7 +226,7 @@ function fnRestAuthUserAddGroup( $user, $group, $saveLocal ) {
 	try {
 		$group->remove_user( $user->getName() );
 	} catch (RestAuthException $e) {
-		fnRestAuthHandleException( $e );
+		throw new MWRestAuthError( $e );
 	}
 	return true;
 }
@@ -243,7 +238,7 @@ function fnRestAuthUserRemoveGroup( $user, $group, $saveLocal ) {
 	try {
 		$group->remove_user( $user->getName() );
 	} catch (RestAuthException $e) {
-		fnRestAuthHandleException( $e );
+		throw new MWRestAuthError( $e );
 	}
 	return true;
 }
@@ -253,12 +248,12 @@ function fnRestAuthGetAllGroups( $user, $externalGroups ) {
 	$conn = restauth_get_connection();
 
 	try {
-		$rest_groups = RestAuthGetAllGroups( $conn );
+		$rest_groups = RestAuthGroups::get_all( $conn );
 		foreach( $rest_groups as $group ) {
 			$externalGroups[] = $group;
 		}
 	} catch (RestAuthException $e) {
-		fnRestAuthHandleException( $e );
+		throw new MWRestAuthError( $e );
 	}
 	return true;
 }
@@ -285,10 +280,10 @@ class RestAuthPlugin extends AuthPlugin {
 	 */
 	public function userExists ($username) {
 		try {
-			RestAuthGetUser( $this->conn, $username );
+			RestAuthUser::get( $this->conn, $username );
 			return true;
 		} catch (RestAuthException $e) {
-			fnRestAuthHandleException( $e );
+			throw new MWRestAuthError( $e );
 		}
 	}
 	
@@ -304,7 +299,7 @@ class RestAuthPlugin extends AuthPlugin {
 				return false;
 			}
 		} catch (RestAuthException $e) {
-			fnRestAuthHandleException( $e );
+			throw new MWRestAuthError( $e );
 		}
 	}
 
@@ -350,7 +345,7 @@ class RestAuthPlugin extends AuthPlugin {
 			$user->set_password( $password );
 			return true;
 		} catch (RestAuthException $e) {
-			fnRestAuthHandleException( $e );
+			throw new MWRestAuthError( $e );
 		}
 	}
 	
@@ -369,10 +364,10 @@ class RestAuthPlugin extends AuthPlugin {
 
 	public function addUser ($user, $password, $email= '', $realname= '') {
 		try {
-			RestAuthCreateUser( $this->conn, $user->getName(), $password );
+			RestAuthUser::Create( $this->conn, $user->getName(), $password );
 			return true;
 		} catch (RestAuthException $e) {
-			fnRestAuthHandleException( $e );
+			throw new MWRestAuthError( $e );
 		}
 	}
 
