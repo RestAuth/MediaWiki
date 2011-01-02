@@ -34,7 +34,7 @@ function fnRestAuthGetOptionName( $option ) {
 
 function fnRestAuthSaveSettings( $user ) {
 	global $wgRestAuthIgnoredOptions, $wgRestAuthGlobalOptions;
-	$conn = restauth_get_connection();
+	$conn = fnRestAuthGetConnection();
 	$rest_user = new RestAuthUser( $conn, $user->getName() );
 
 	try {
@@ -95,7 +95,7 @@ function fnRestAuthSaveSettings( $user ) {
  */
 function fnRestAuthSaveOptions( $user, $options ) {
 	global $wgRestAuthIgnoredOptions, $wgRestAuthGlobalOptions;
-	$conn = restauth_get_connection();
+	$conn = fnRestAuthGetConnection();
 	$rest_user = new RestAuthUser( $conn, $user->getName() );
 	
 	try {
@@ -123,7 +123,13 @@ function fnRestAuthSaveOptions( $user, $options ) {
 				if ( ( is_null( User::getDefaultOption( $key ) ) &&
 					!( $value === false || is_null($value) ) ) ||
 					 $value != User::getDefaultOption( $key ) ) {
-					$rest_user->create_property( $prop, $value );
+					try {
+						$rest_user->create_property( $prop, $value );
+					} catch (RestAuthPropertyExists $e) {
+						print( "Key: " . $key );
+						print( "Property: " . $prop );
+						print_r( $rest_options );
+					}
 				}
 			}
 		}
@@ -140,7 +146,7 @@ function fnRestAuthSaveOptions( $user, $options ) {
 function fnRestAuthLoadOptions( $user, $options ) {
 	global $wgRestAuthIgnoredOptions, $wgRestAuthGlobalOptions;
 	global $wgDefaultOptions;
-	$conn = restauth_get_connection();
+	$conn = fnRestAuthGetConnection();
 	$rest_user = new RestAuthUser( $conn, $user->getName() );
 
 	// default options is mainly used as a complete list of all options:
@@ -172,7 +178,7 @@ function fnRestAuthLoadOptions( $user, $options ) {
 
 			// This is a global option where we also have an option
 			// specific to MediaWiki - which we use instead
-			if ( array_key_exists( 'mediawiki ' . $key, $restauth_options ) ) {
+			if ( array_key_exists( 'mediawiki ' . $key, $rest_options ) ) {
 				continue;
 			}
 			$prop_name = $key;
@@ -200,7 +206,7 @@ function fnRestAuthLoadOptions( $user, $options ) {
 }
 
 function fnRestAuthUserEffectiveGroups( $user, $groups ) {
-	$conn = restauth_get_connection();
+	$conn = fnRestAuthGetConnection();
 	try {
 		$rest_groups = RestAuthGroup::get_all( $conn, $user->getName() );
 	} catch (RestAuthException $e) {
@@ -208,8 +214,6 @@ function fnRestAuthUserEffectiveGroups( $user, $groups ) {
 		wfDebug( "Unable to get groups from auth-service: " . $e );
 		return true;
 	}
-
-	//TODO: whatever this returns?
 
 	foreach ($rest_groups as $group) {
 		if ( ! in_array( $group, $groups ) ) {
@@ -220,8 +224,7 @@ function fnRestAuthUserEffectiveGroups( $user, $groups ) {
 }
 
 function fnRestAuthUserAddGroup( $user, $group, $saveLocal ) {
-	#TODO: Error hanlding.
-	$conn = restauth_get_connection();
+	$conn = fnRestAuthGetConnection();
 	$group = RestAuthGroup( $conn, $group );
 	try {
 		$group->remove_user( $user->getName() );
@@ -232,8 +235,7 @@ function fnRestAuthUserAddGroup( $user, $group, $saveLocal ) {
 }
 
 function fnRestAuthUserRemoveGroup( $user, $group, $saveLocal ) {
-	#TODO: Error handling
-	$conn = restauth_get_connection();
+	$conn = fnRestAuthGetConnection();
 	$group = RestAuthGroup( $conn, $group );
 	try {
 		$group->remove_user( $user->getName() );
@@ -244,8 +246,7 @@ function fnRestAuthUserRemoveGroup( $user, $group, $saveLocal ) {
 }
 
 function fnRestAuthGetAllGroups( $user, $externalGroups ) {
-	#TODO: Error hanlding.
-	$conn = restauth_get_connection();
+	$conn = fnRestAuthGetConnection();
 
 	try {
 		$rest_groups = RestAuthGroups::get_all( $conn );
@@ -261,18 +262,21 @@ function fnRestAuthGetAllGroups( $user, $externalGroups ) {
 /**
  * Helper function to get a connection object to the RestAuth service.
  */
-function restauth_get_connection() {
-	global $wgRestAuthHost, $wgRestAuthPort, $wgRestAuthService,
-		$wgRestAuthServicePassword;
+function fnRestAuthGetConnection() {
+	global $wgRestAuthHost, $wgRestAuthService,
+		$wgRestAuthServicePassword, $wgRestAuthUseCookies;
+	if ( ! isset( $wgRestAuthHost ) ) $wgRestAuthHost = 'http://localhost';
+	if ( ! isset( $wgRestAuthUseCookies ) ) $wgRestAuthUseCookies = true;
 
-	return new RestAuthConnection( $wgRestAuthHost, $wgRestAuthPort,
-		$wgRestAuthService, $wgRestAuthServicePassword );
+	return RestAuthConnection::get_connection( $wgRestAuthHost, 
+		$wgRestAuthService, $wgRestAuthServicePassword, 
+		$wgRestAuthUseCookies );
 }
 
 class RestAuthPlugin extends AuthPlugin {
 
 	public function __construct() {
-		$this->conn = restauth_get_connection();
+		$this->conn = fnRestAuthGetConnection();
 	}
 
 	/**
