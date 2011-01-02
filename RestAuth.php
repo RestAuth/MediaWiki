@@ -3,7 +3,6 @@
 global $wgRestAuthIgnoredOptions, $wgRestAuthGlobalOptions;
 // default settings;
 if ( ! $wgRestAuthHost ) $wgRestAuthHost = 'localhost';
-if ( ! $wgRestAuthPort ) $wgRestAuthPort = 443;
 if ( ! $wgRestAuthIgnoredOptions ) {
 	$wgRestAuthIgnoredOptions = array(
 		"watchlisttoken",
