@@ -5,7 +5,7 @@ class MWRestAuthError extends MWException {
 		$this->code = $previous->getCode();
 		$this->previous = $previous;
 
-		parent::__construct( $message, $code, $previous );
+		parent::__construct( $previous->getMessage(), $previous->getCode(), $previous );
 	}
 
 	function getPageTitle() {
