@@ -13,8 +13,6 @@ $wgHooks['UserAddGroup'][] = 'fnRestAuthUserAddGroup';
 $wgHooks['UserRemoveGroup'][] = 'fnRestAuthUserRemoveGroup';
 $wgHooks['UserGetAllGroups'][] = 'fnRestAuthGetAllGroups';
 
-//$wgHooks['UserSetEmail'][] = 'fnRestAuthSetEmail';
-//$wgHooks['UserGetEmail'][] = 'fnRestAuthGetEmail';
 $wgHooks['UserSaveSettings'][] = 'fnRestAuthSaveSettings';
 $wgHooks['UserSaveOptions'][] = 'fnRestAuthSaveOptions';
 $wgHooks['UserLoadOptions'][] = 'fnRestAuthLoadOptions';
@@ -50,7 +48,7 @@ function fnRestAuthSaveSettings( $user ) {
 				array_key_exists( $prop, $props ) ) {
 			// We set an empty value and RestAuth defines a real
 			// name. This is equivalent to a deletion request.
-			$rest_user->del_property( $prop );
+			$rest_user->remove_property( $prop );
 		}
 
 		// handle email:
@@ -72,14 +70,14 @@ function fnRestAuthSaveSettings( $user ) {
 			if ( $confirmed ) {
 				$rest_user->set_property( $prop_confirmed, '1' );
 			} else {
-				$rest_user->del_property( $prop_confirmed );
+				$rest_user->remove_property( $prop_confirmed );
 			}
 		} elseif ( (!$user->mEmail) && 
 				array_key_exists( $prop, $props ) ) {
 			// We set an empty value and RestAuth defines an email.
 			// This is equivalent to a deletion request.
-			$rest_user->del_property( $prop );
-			$rest_user->del_property( $prop_confirmed );
+			$rest_user->remove_property( $prop );
+			$rest_user->remove_property( $prop_confirmed );
 		}
 
 		return true;
@@ -112,9 +110,9 @@ function fnRestAuthSaveOptions( $user, $options ) {
 				// The setting exists in the RestAuth service.
 				// Only save the setting when its different from
 				// whats already // there:
-				if ( $rest_options[$prop] !== $value ) {
+				if ( $rest_options[$prop] != $value ) {
 					$rest_user->set_property( $prop, $value );
-				}
+				} 
 			} else {
 				// The setting does not yet exist in the
 				// RestAuth service. Only save it when the new
@@ -126,9 +124,7 @@ function fnRestAuthSaveOptions( $user, $options ) {
 					try {
 						$rest_user->create_property( $prop, $value );
 					} catch (RestAuthPropertyExists $e) {
-						print( "Key: " . $key );
-						print( "Property: " . $prop );
-						print_r( $rest_options );
+						throw new MWRestAuthError( $e );
 					}
 				}
 			}
@@ -154,7 +150,8 @@ function fnRestAuthLoadOptions( $user, $options ) {
 
 	// get all options from RestAuth so we can check if any of them should
 	// be used here:
-	try { 
+	try {
+		$rest_options = array();
 		$rest_options = $rest_user->get_properties();
 	} catch (RestAuthException $e) {
 		// if this is the case, we just don't load any options.
@@ -263,14 +260,11 @@ function fnRestAuthGetAllGroups( $user, $externalGroups ) {
  * Helper function to get a connection object to the RestAuth service.
  */
 function fnRestAuthGetConnection() {
-	global $wgRestAuthHost, $wgRestAuthService,
-		$wgRestAuthServicePassword, $wgRestAuthUseCookies;
+	global $wgRestAuthHost, $wgRestAuthService, $wgRestAuthServicePassword;
 	if ( ! isset( $wgRestAuthHost ) ) $wgRestAuthHost = 'http://localhost';
-	if ( ! isset( $wgRestAuthUseCookies ) ) $wgRestAuthUseCookies = true;
 
 	return RestAuthConnection::get_connection( $wgRestAuthHost, 
-		$wgRestAuthService, $wgRestAuthServicePassword, 
-		$wgRestAuthUseCookies );
+		$wgRestAuthService, $wgRestAuthServicePassword );
 }
 
 class RestAuthPlugin extends AuthPlugin {
@@ -368,7 +362,7 @@ class RestAuthPlugin extends AuthPlugin {
 
 	public function addUser ($user, $password, $email= '', $realname= '') {
 		try {
-			RestAuthUser::Create( $this->conn, $user->getName(), $password );
+			RestAuthUser::create( $this->conn, $user->getName(), $password );
 			return true;
 		} catch (RestAuthException $e) {
 			throw new MWRestAuthError( $e );
