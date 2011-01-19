@@ -41,9 +41,16 @@ function fnRestAuthSaveSettings( $user ) {
 		// set real name
 		$prop = fnRestAuthGetOptionName( 'real name' );
 		if ( $user->mRealName && $user->mRealName !== $props[$prop] ) {
-			// we set a value and its different from what we have at
-			// the RestAuth service:
-			$rest_user->set_property( $prop, $user->mRealName );
+			// real name is set
+
+			if ( ! array_key_exists( $prop, $props ) ) {
+				// not set in restauth so far
+				$rest_user->create_property( $prop, $user->mRealName );
+			} elseif ( $user->mRealName !== $props[$prop] ) {
+				// set, but have a different value remotely:
+				$rest_user->set_property( $prop, $user->mRealName );
+			}
+			// else: local property identical to remote property
 		} elseif ( (! $user->mRealName) && 
 				array_key_exists( $prop, $props ) ) {
 			// We set an empty value and RestAuth defines a real
@@ -67,17 +74,25 @@ function fnRestAuthSaveSettings( $user ) {
 			// (version 1.16.0)
 			$confirmed = $dbw->timestampOrNull( 
 				$user->mEmailAuthenticated );
-			if ( $confirmed ) {
-				$rest_user->set_property( $prop_confirmed, '1' );
-			} else {
+
+			if ( ! array_key_exists( $prop_confirmed, $props ) 
+					&& $confirmed ) {
+				// confirmed and not set remotely:
+				$rest_user->create_property( $prop_confirmed, '1' );
+			} elseif ( array_key_exists( $prop_confirmed, $props ) 
+					&& ! $confirmed ) {
+				// nut confirmed but confirmed remotely
 				$rest_user->remove_property( $prop_confirmed );
 			}
-		} elseif ( (!$user->mEmail) && 
-				array_key_exists( $prop, $props ) ) {
+		} elseif ( ! $user->mEmail ) {
+			if ( array_key_exists( $prop, $props ) ) {
 			// We set an empty value and RestAuth defines an email.
 			// This is equivalent to a deletion request.
-			$rest_user->remove_property( $prop );
-			$rest_user->remove_property( $prop_confirmed );
+				$rest_user->remove_property( $prop );
+			}
+			if ( array_key_exists( $prop_confirmed, $props ) ) {
+				$rest_user->remove_property( $prop_confirmed );
+			}
 		}
 
 		return true;
@@ -92,7 +107,7 @@ function fnRestAuthSaveSettings( $user ) {
  * named in the setting $wgRestAuthIgnoredOptions.
  */
 function fnRestAuthSaveOptions( $user, $options ) {
-	global $wgRestAuthIgnoredOptions, $wgRestAuthGlobalOptions;
+	global $wgRestAuthIgnoredOptions;
 	$conn = fnRestAuthGetConnection();
 	$rest_user = new RestAuthUser( $conn, $user->getName() );
 	
@@ -364,6 +379,7 @@ class RestAuthPlugin extends AuthPlugin {
 		try {
 			RestAuthUser::create( $this->conn, $user->getName(), $password );
 			return true;
+// TODO: email, realname?
 		} catch (RestAuthException $e) {
 			throw new MWRestAuthError( $e );
 		}
