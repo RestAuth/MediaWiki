@@ -261,7 +261,7 @@ function fnRestAuthGetAllGroups( $user, $externalGroups ) {
 	$conn = fnRestAuthGetConnection();
 
 	try {
-		$rest_groups = RestAuthGroups::get_all( $conn );
+		$rest_groups = RestAuthGroup::get_all( $conn );
 		foreach( $rest_groups as $group ) {
 			$externalGroups[] = $group;
 		}
