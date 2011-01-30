@@ -295,6 +295,8 @@ class RestAuthPlugin extends AuthPlugin {
 		try {
 			RestAuthUser::get( $this->conn, $username );
 			return true;
+		} catch (RestAuthResourceNotFound $e) {
+			return false;
 		} catch (RestAuthException $e) {
 			throw new MWRestAuthError( $e );
 		}
