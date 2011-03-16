@@ -198,7 +198,7 @@ function fnRestAuthUserAddGroup( $user, $group ) {
 	$conn = fnRestAuthGetConnection();
 	$group = RestAuthGroup( $conn, $group );
 	try {
-		$group->remove_user( $user->getName() );
+		$group->add_user( $user->getName() );
 	} catch (RestAuthException $e) {
 		throw new MWRestAuthError( $e );
 	}
