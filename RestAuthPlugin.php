@@ -8,14 +8,12 @@
 require_once( 'AuthPlugin.php' );
 require_once( '/usr/share/php-restauth/restauth.php' );
 
-#$wgHooks['UserEffectiveGroups'][] = 'fnRestAuthUserEffectiveGroups';
 $wgHooks['UserAddGroup'][] = 'fnRestAuthUserAddGroup';
 $wgHooks['UserRemoveGroup'][] = 'fnRestAuthUserRemoveGroup';
-#$wgHooks['UserGetAllGroups'][] = 'fnRestAuthGetAllGroups';
 
-$wgHooks['UserSaveSettings'][] = 'fnRestAuthSaveSettings';
-$wgHooks['UserSaveOptions'][] = 'fnRestAuthSaveOptions';
-$wgHooks['UserLoadOptions'][] = 'fnRestAuthLoadOptions';
+#$wgHooks['UserSaveSettings'][] = 'fnRestAuthSaveSettings';
+#$wgHooks['UserSaveOptions'][] = 'fnRestAuthSaveOptions';
+#$wgHooks['UserLoadOptions'][] = 'fnRestAuthLoadOptions';
 
 /**
  * Helper function to see if an option is a global option or not.
@@ -217,24 +215,6 @@ function fnRestAuthLoadOptions( $user, $options ) {
 	return true;
 }
 
-#function fnRestAuthUserEffectiveGroups( $user, $groups ) {
-#	$conn = fnRestAuthGetConnection();
-#	try {
-#		$rest_groups = RestAuthGroup::get_all( $conn, $user->getName() );
-#	} catch (RestAuthException $e) {
-#		// if this is the case, we just don't add any groups.
-#		wfDebug( "Unable to get groups from auth-service: " . $e );
-#		return true;
-#	}
-#
-#	foreach ($rest_groups as $group) {
-#		if ( ! in_array( $group, $groups ) ) {
-#			$groups[] = $group;
-#		}
-#	}
-#	return true;
-#}
-
 function fnRestAuthUserAddGroup( $user, $group ) {
 	$conn = fnRestAuthGetConnection();
 	$group = RestAuthGroup( $conn, $group );
@@ -251,20 +231,6 @@ function fnRestAuthUserRemoveGroup( $user, $group ) {
 	$group = RestAuthGroup( $conn, $group );
 	try {
 		$group->remove_user( $user->getName() );
-	} catch (RestAuthException $e) {
-		throw new MWRestAuthError( $e );
-	}
-	return true;
-}
-
-function fnRestAuthGetAllGroups( $user, $externalGroups ) {
-	$conn = fnRestAuthGetConnection();
-
-	try {
-		$rest_groups = RestAuthGroup::get_all( $conn );
-		foreach( $rest_groups as $group ) {
-			$externalGroups[] = $group;
-		}
 	} catch (RestAuthException $e) {
 		throw new MWRestAuthError( $e );
 	}
