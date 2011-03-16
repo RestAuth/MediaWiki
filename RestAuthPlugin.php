@@ -1,21 +1,25 @@
 <?php
 
-# settings:
-#$wgRestAuthURL
-#$wgRestAuthService
-#$wgRestAuthServicePassword
-
 require_once( 'AuthPlugin.php' );
 require_once( '/usr/share/php-restauth/restauth.php' );
 
+# group handling:
 $wgHooks['UserAddGroup'][] = 'fnRestAuthUserAddGroup';
 $wgHooks['UserRemoveGroup'][] = 'fnRestAuthUserRemoveGroup';
 
+# settings/options
 $wgHooks['UserSaveSettings'][] = 'fnRestAuthSaveSettings';
 $wgHooks['UserSaveOptions'][] = 'fnRestAuthSaveOptions';
 
+# auto-update local database 
 $wgHooks['BeforeInitialize'][] = 'fnRestAuthUpdatePreferences';
 
+/**
+ * This function is called upon every pageview and refreshes the local database
+ * cache if the last refresh is more than $RestAuthRefresh seconds ago.
+ *
+ * Please see the documentation for the BeforeInitialize Hook if needed.
+ */
 function fnRestAuthUpdatePreferences( $title, $article, $output, $user, $request, $this ) {
 	if ( $title->getNamespace() === NS_SPECIAL && 
 			SpecialPage::resolveAlias( $title->getText() ) === "Preferences" ) {
@@ -27,9 +31,11 @@ function fnRestAuthUpdatePreferences( $title, $article, $output, $user, $request
 
 	global $RestAuthRefresh;
 	if ( is_null( $RestAuthRefresh ) ) {
-		$RestAuthRefresh = 100;
+		$RestAuthRefresh = 300;
 	}
 
+	// Update local database if the last refresh is more than
+	// RestAuthRefresh seconds ago:
 	$now = time();
 	$timestamp = $user->getIntOption( 'RestAuthRefreshTimestamp', $now );
 	if ( $timestamp + $RestAuthRefresh < $now ) {
@@ -185,6 +191,9 @@ function fnRestAuthSaveOptions( $user, $options ) {
 	return true;
 }
 
+/**
+ * Called when a bureaucrat adds the user to a group via Special:UserRights.
+ */
 function fnRestAuthUserAddGroup( $user, $group ) {
 	$conn = fnRestAuthGetConnection();
 	$group = RestAuthGroup( $conn, $group );
@@ -196,6 +205,9 @@ function fnRestAuthUserAddGroup( $user, $group ) {
 	return true;
 }
 
+/**
+ * Called when a bureaucrat removes a group from a user via Special:UserRights.
+ */
 function fnRestAuthUserRemoveGroup( $user, $group ) {
 	$conn = fnRestAuthGetConnection();
 	$group = RestAuthGroup( $conn, $group );
