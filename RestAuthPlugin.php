@@ -11,9 +11,34 @@ require_once( '/usr/share/php-restauth/restauth.php' );
 $wgHooks['UserAddGroup'][] = 'fnRestAuthUserAddGroup';
 $wgHooks['UserRemoveGroup'][] = 'fnRestAuthUserRemoveGroup';
 
-#$wgHooks['UserSaveSettings'][] = 'fnRestAuthSaveSettings';
-#$wgHooks['UserSaveOptions'][] = 'fnRestAuthSaveOptions';
-#$wgHooks['UserLoadOptions'][] = 'fnRestAuthLoadOptions';
+$wgHooks['UserSaveSettings'][] = 'fnRestAuthSaveSettings';
+$wgHooks['UserSaveOptions'][] = 'fnRestAuthSaveOptions';
+
+$wgHooks['BeforeInitialize'][] = 'fnRestAuthUpdatePreferences';
+
+function fnRestAuthUpdatePreferences( $title, $article, $output, $user, $request, $this ) {
+	if ( $title->getNamespace() === NS_SPECIAL && 
+			SpecialPage::resolveAlias( $title->getText() ) === "Preferences" ) {
+		// update on Special:Preferences in any case
+		global $wgAuth;
+		$wgAuth->updateSettings( $conn, $user );
+		return true;
+	}
+
+	global $RestAuthRefresh;
+	if ( is_null( $RestAuthRefresh ) ) {
+		$RestAuthRefresh = 100;
+	}
+
+	$now = time();
+	$timestamp = $user->getIntOption( 'RestAuthRefreshTimestamp', $now );
+	if ( $timestamp + $RestAuthRefresh < $now ) {
+		global $wgAuth;
+		$wgAuth->updateUser( $user );
+	}
+
+	return true;
+}
 
 /**
  * Helper function to see if an option is a global option or not.
@@ -108,110 +133,55 @@ function fnRestAuthSaveOptions( $user, $options ) {
 	global $wgRestAuthIgnoredOptions;
 	$conn = fnRestAuthGetConnection();
 	$rest_user = new RestAuthUser( $conn, $user->getName() );
+	$update_options = array();
+	$create_options = array();
 	
+	# Get options from RestAuth service:
 	try {
-		$rest_options = $rest_user->get_properties();
-		foreach ( $options as $key => $value ) {
-			if ( in_array( $key, $wgRestAuthIgnoredOptions ) ) {
-				// filter ignored options
-				continue;
-			}
+		$remote_options = $rest_user->get_properties();
+	} catch (RestAuthException $e) {
+		throw new MWRestAuthError( $e );
+	}
 
-			$prop = fnRestAuthGetOptionName( $key );
+	foreach( $saveOptions as $key => $value ) {
+		if ( in_array( $key, $wgRestAuthIgnoredOptions ) ) {
+			continue; // filter ignored options
+		}
+		
+		// get name that this option has remotly 
+		$prop = fnRestAuthGetOptionName( $key );
 
-			if ( array_key_exists( $prop, $rest_options ) ) {
-				// The setting exists in the RestAuth service.
-				// Only save the setting when its different from
-				// whats already // there:
-				if ( $rest_options[$prop] != $value ) {
+		if ( array_key_exists( $prop, $remote_options ) ) {
+			if ( $remote_options[$prop] != $value ) {
+				try {
 					$rest_user->set_property( $prop, $value );
-				} 
-			} else {
-				// The setting does not yet exist in the
-				// RestAuth service. Only save it when the new
-				// setting is different from the local default.
+				} catch (RestAuthException $e ) {
+					throw new MWRestAuthError( $e );
+				}
+			} 
+		} else {
+			// The setting does not yet exist in the
+			// RestAuth service. Only save it when the new
+			// setting is different from the local default.
 
-				if ( ( is_null( User::getDefaultOption( $key ) ) &&
+			if ( ( is_null( User::getDefaultOption( $key ) ) &&
 					!( $value === false || is_null($value) ) ) ||
 					 $value != User::getDefaultOption( $key ) ) {
-					try {
-						$rest_user->create_property( $prop, $value );
-					} catch (RestAuthPropertyExists $e) {
-						throw new MWRestAuthError( $e );
-					}
+				try {
+					$rest_user->create_property( $prop, $value );
+				} catch (RestAuthPropertyExists $e ) {
+					$rest_user->set_property( $prop, $value );
+					throw new MWRestAuthError( $e );
+				} catch (RestAuthException $e ) {
+					throw new MWRestAuthError( $e );
 				}
 			}
 		}
-	} catch (RestAuthException $e) {
-		throw new MWRestAuthError( $e );
 	}
 
 	// return true so we still save to the database. This way we still have
 	// somewhat valid settings here in case the RestAuth service is
 	// temporarily unavailable.
-	return false;
-}
-
-function fnRestAuthLoadOptions( $user, $options ) {
-	global $wgRestAuthIgnoredOptions, $wgRestAuthGlobalOptions;
-	global $wgDefaultOptions;
-	$conn = fnRestAuthGetConnection();
-	$rest_user = new RestAuthUser( $conn, $user->getName() );
-
-	// default options is mainly used as a complete list of all options:
-	$default_options = User::getDefaultOptions();
-
-	// get all options from RestAuth so we can check if any of them should
-	// be used here:
-	try {
-		$rest_options = array();
-		$rest_options = $rest_user->get_properties();
-	} catch (RestAuthException $e) {
-		// if this is the case, we just don't load any options.
-		wfDebug( "Unable to get groups from auth-service: " . $e );
-		return true;
-	}
-
-	foreach( $rest_options as $key => $value ) {
-		$prop_name='';
-		if ( strpos( $key, 'mediawiki ' ) === 0 ) {
-			// if this is a mediawiki specific setting, remove the
-			// prefix:
-			$prop_name = substr( $key, 10 );
-		} else {
-			// This setting is not specific to MediaWiki. Only use
-			// the setting if we find it in $wgRestAuthGlobalOptions.
-			if ( ! ( array_key_exists( $key, $wgRestAuthGlobalOptions )
-					&& $wgRestAuthGlobalOptions[$key] ) ) {
-				continue;
-			}
-
-			// This is a global option where we also have an option
-			// specific to MediaWiki - which we use instead
-			if ( array_key_exists( 'mediawiki ' . $key, $rest_options ) ) {
-				continue;
-			}
-			$prop_name = $key;
-		}
-
-		if ( in_array( $prop_name, $wgRestAuthIgnoredOptions ) ) {
-			// filter ignored options
-			continue;
-		}
-
-		if ( $prop_name == 'real name' ) {
-			$user->mRealName = $value;
-		} elseif ( $prop_name == 'email' ) {
-			$user->mEmail = $value;
-		} elseif ( $prop_name == 'email confirmed' ) {
-			$user->mEmailConfirmed = $value;
-		} elseif ( array_key_exists( $prop_name, $default_options ) ) {
-			// finally use the property from RestAuth, if the
-			// property exists as a default option:
-			$user->mOptions[$prop_name] = $value;
-			$user->mOptionsOverrides[$prop_name] = $value;
-		}
-	}
 	return true;
 }
 
@@ -300,6 +270,152 @@ class RestAuthPlugin extends AuthPlugin {
 		return true;
 	}
 
+	private static function newTouchedTimestamp() {
+                global $wgClockSkewFudge;
+                return wfTimestamp( TS_MW, time() + $wgClockSkewFudge );
+        }
+
+	public static function updateOptions( &$user ) {
+                global $wgAllowPrefChange;
+
+                $extuser = ExternalUser::newFromUser( $user );
+
+		// hack to load options:
+                //$user->loadOptions();
+		$user->getOption( 'foo', 'bar' );
+
+                $dbw = wfGetDB( DB_MASTER );
+
+                $insert_rows = array();
+
+                $saveOptions = $user->mOptions;
+
+		// hook call removed here
+
+                foreach( $saveOptions as $key => $value ) {
+                        # Don't bother storing default values
+                        if ( ( is_null( User::getDefaultOption( $key ) ) &&
+                                        !( $value === false || is_null($value) ) ) ||
+                                        $value != User::getDefaultOption( $key ) ) {
+                                $insert_rows[] = array(
+                                                'up_user' => $user->getId(),
+                                                'up_property' => $key,
+                                                'up_value' => $value,
+                                        );
+                        }  
+                        if ( $extuser && isset( $wgAllowPrefChange[$key] ) ) {
+                                switch ( $wgAllowPrefChange[$key] ) {
+                                        case 'local':
+                                        case 'message':
+                                                break;
+                                        case 'semiglobal':
+                                        case 'global':
+                                                $extuser->setPref( $key, $value );
+                                }
+                        }
+                }
+
+		$dbw->begin();
+                $dbw->delete( 'user_properties', array( 'up_user' => $user->getId() ), __METHOD__ );
+                $dbw->insert( 'user_properties', $insert_rows, __METHOD__ );
+                $dbw->commit();
+	}
+
+	public static function updateSettings( &$conn, &$user ) {
+		// initialize local user:
+		$user->load();
+		if ( wfReadOnly() ) { return; }
+		if ( 0 == $user->mId ) { return; }
+
+		// get remote user:
+		global $wgRestAuthIgnoredOptions, $wgRestAuthGlobalOptions;
+		$rest_user = new RestAuthUser( $conn, $user->getName() );
+
+		// used as a complete list of all options:
+		$default_options = User::getDefaultOptions();
+
+		// get all options from the RestAuth service
+		try {
+			$rest_options = $rest_user->get_properties();
+		} catch (RestAuthException $e) {
+			// if this is the case, we just don't load any options.
+			wfDebug( "Unable to get options from auth-service: " . $e );
+			return true;
+		}
+
+		// take care of setting all settings and options to the current
+		// user object.
+		foreach( $rest_options as $key => $value ) {
+			if ( strpos( $key, 'mediawiki ' ) === 0 ) {
+				// if this is a mediawiki specific setting, remove the
+				// prefix:
+				$prop_name = substr( $key, 10 );
+			} else {
+				// This setting is not specific to MediaWiki. Only use
+				// the setting if we find it in $wgRestAuthGlobalOptions.
+				if ( ! ( array_key_exists( $key, $wgRestAuthGlobalOptions )
+						&& $wgRestAuthGlobalOptions[$key] ) ) {
+					continue;
+				}
+
+				// This is a global option where we also have an option
+				// specific to MediaWiki - which we use instead
+				if ( array_key_exists( 'mediawiki ' . $key, $rest_options ) ) {
+					continue;
+				}
+				$prop_name = $key;
+			}
+		
+			if ( in_array( $prop_name, $wgRestAuthIgnoredOptions ) ) {
+				continue; // filter ignored options
+			}
+
+			if ( $prop_name == 'real name' ) {
+				$user->mRealName = $value;
+			} elseif ( $prop_name == 'email' ) {
+				$user->mEmail = $value;
+			} elseif ( $prop_name == 'email confirmed' ) {
+				$user->mEmailConfirmed = $value;
+			} elseif ( array_key_exists( $prop_name, $default_options ) ) {
+				// finally use the property from RestAuth, if the
+				// property exists as a default option:
+				$user->mOptions[$prop_name] = $value;
+				$user->mOptionsOverrides[$prop_name] = $value;
+			}
+		}
+
+		// update RestAuthRefreshTimestamp:
+		$user->mOptions['RestAuthRefreshTimestamp'] = time();
+
+		// begin saving the user to the local database:
+		$user->mTouched = self::newTouchedTimestamp();
+
+		$dbw = wfGetDB( DB_MASTER );
+                $dbw->update( 'user',
+                        array( /* SET */
+                                'user_name' => $user->mName,
+                                'user_password' => $user->mPassword,
+                                'user_newpassword' => $user->mNewpassword,
+                                'user_newpass_time' => $dbw->timestampOrNull( $user->mNewpassTime ),
+                                'user_real_name' => $user->mRealName,
+                                'user_email' => $user->mEmail,
+                                'user_email_authenticated' => $dbw->timestampOrNull( $user->mEmailAuthenticated ),
+                                'user_options' => '',
+                                'user_touched' => $dbw->timestamp( $user->mTouched ),
+                                'user_token' => $user->mToken,
+                                'user_email_token' => $user->mEmailToken,
+                                'user_email_token_expires' => $dbw->timestampOrNull( $user->mEmailTokenExpires ),
+                        ), array( /* WHERE */
+                                'user_id' => $user->mId
+                        ), __METHOD__
+                );
+
+                RestAuthPlugin::updateOptions( $user );
+
+                $user->invalidateCache();
+                $user->getUserPage()->invalidateCache();
+	}
+
 	/**
  	  * Synchronize the local group database with the remote database.
 	  */
@@ -353,6 +469,7 @@ class RestAuthPlugin extends AuthPlugin {
 	function updateUser (&$user) {
 		# When a user logs in, optionally fill in preferences and such.	
 		RestAuthPlugin::updateGroups( $this->conn, $user );
+		RestAuthPlugin::updateSettings( $this->conn, $user );
 	}
 
 	public function autoCreate () {
@@ -423,6 +540,7 @@ class RestAuthPlugin extends AuthPlugin {
 		# When creating a user account, optionally fill in preferences
 		# and such.
 		RestAuthPlugin::updateGroups( $this->conn, $user );
+		RestAuthPlugin::updateSettings( $this->conn, $user );
 	}
 
 /*	function getCanonicalName ($username) {
