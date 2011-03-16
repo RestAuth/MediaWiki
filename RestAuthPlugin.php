@@ -8,10 +8,10 @@
 require_once( 'AuthPlugin.php' );
 require_once( '/usr/share/php-restauth/restauth.php' );
 
-$wgHooks['UserEffectiveGroups'][] = 'fnRestAuthUserEffectiveGroups';
+#$wgHooks['UserEffectiveGroups'][] = 'fnRestAuthUserEffectiveGroups';
 $wgHooks['UserAddGroup'][] = 'fnRestAuthUserAddGroup';
 $wgHooks['UserRemoveGroup'][] = 'fnRestAuthUserRemoveGroup';
-$wgHooks['UserGetAllGroups'][] = 'fnRestAuthGetAllGroups';
+#$wgHooks['UserGetAllGroups'][] = 'fnRestAuthGetAllGroups';
 
 $wgHooks['UserSaveSettings'][] = 'fnRestAuthSaveSettings';
 $wgHooks['UserSaveOptions'][] = 'fnRestAuthSaveOptions';
@@ -217,25 +217,25 @@ function fnRestAuthLoadOptions( $user, $options ) {
 	return true;
 }
 
-function fnRestAuthUserEffectiveGroups( $user, $groups ) {
-	$conn = fnRestAuthGetConnection();
-	try {
-		$rest_groups = RestAuthGroup::get_all( $conn, $user->getName() );
-	} catch (RestAuthException $e) {
-		// if this is the case, we just don't add any groups.
-		wfDebug( "Unable to get groups from auth-service: " . $e );
-		return true;
-	}
+#function fnRestAuthUserEffectiveGroups( $user, $groups ) {
+#	$conn = fnRestAuthGetConnection();
+#	try {
+#		$rest_groups = RestAuthGroup::get_all( $conn, $user->getName() );
+#	} catch (RestAuthException $e) {
+#		// if this is the case, we just don't add any groups.
+#		wfDebug( "Unable to get groups from auth-service: " . $e );
+#		return true;
+#	}
+#
+#	foreach ($rest_groups as $group) {
+#		if ( ! in_array( $group, $groups ) ) {
+#			$groups[] = $group;
+#		}
+#	}
+#	return true;
+#}
 
-	foreach ($rest_groups as $group) {
-		if ( ! in_array( $group, $groups ) ) {
-			$groups[] = $group;
-		}
-	}
-	return true;
-}
-
-function fnRestAuthUserAddGroup( $user, $group, $saveLocal ) {
+function fnRestAuthUserAddGroup( $user, $group ) {
 	$conn = fnRestAuthGetConnection();
 	$group = RestAuthGroup( $conn, $group );
 	try {
@@ -246,7 +246,7 @@ function fnRestAuthUserAddGroup( $user, $group, $saveLocal ) {
 	return true;
 }
 
-function fnRestAuthUserRemoveGroup( $user, $group, $saveLocal ) {
+function fnRestAuthUserRemoveGroup( $user, $group ) {
 	$conn = fnRestAuthGetConnection();
 	$group = RestAuthGroup( $conn, $group );
 	try {
@@ -334,9 +334,60 @@ class RestAuthPlugin extends AuthPlugin {
 		return true;
 	}
 
-//	function updateUser (&$user) {
-//		# When a user logs in, optionally fill in preferences and such.
-//	}
+	/**
+ 	  * Synchronize the local group database with the remote database.
+	  */
+	public static function updateGroups( &$conn, &$user ) {
+		$user->load();
+		$user->loadGroups();
+		$rest_groups = RestAuthGroup::get_all( $conn, $user->getName() );
+		$remote_groups = array();
+		foreach ( $rest_groups as $rest_group ) {
+			$remote_groups[] = $rest_group->name;
+		}
+
+		# get database slave:
+		$dbw = wfGetDB( DB_MASTER );
+
+		# remove groups no longer found in the remote database:
+		$rem_groups = array_diff( $user->mGroups, $remote_groups );
+		foreach ( $rem_groups as $group ) {
+			$dbw->delete( 'user_groups',
+				array(
+					'ug_user'  => $user->getID(),
+					'ug_group' => $group,
+				),
+				'RestAuthPlugin::updateGroups' );
+		}
+
+		# add new groups found in the remote database:
+		$add_groups = array_diff( $remote_groups, $user->mGroups );
+		foreach ( $add_groups as $group ) {
+			if( $user->getId() ) {
+				$dbw->insert( 'user_groups',
+					array(
+						'ug_user'  => $user->getID(),
+						'ug_group' => $group,
+					),
+					'RestAuthPlugin::updateGroups',
+					array( 'IGNORE' ) );
+			}
+		}
+
+		$user->loadGroups();
+		$user->mGroups = $remote_groups;
+		$user->mRights = User::getGroupPermissions( $user->getEffectiveGroups( true ) );
+		$user->invalidateCache();
+	}
+
+	/**
+	 * Called whenever a user logs in. It updates local groups to mach those
+	 * from the remote database.
+	 */
+	function updateUser (&$user) {
+		# When a user logs in, optionally fill in preferences and such.	
+		RestAuthPlugin::updateGroups( $this->conn, $user );
+	}
 
 	public function autoCreate () {
 		# Return true if the wiki should create a new local account
@@ -402,11 +453,12 @@ class RestAuthPlugin extends AuthPlugin {
 		return true;
 	}
 
-/*	function initUser (&$user, $autocreate=false) {
+	function initUser (&$user, $autocreate=false) {
 		# When creating a user account, optionally fill in preferences
 		# and such.
+		RestAuthPlugin::updateGroups( $this->conn, $user );
 	}
-*/
+
 /*	function getCanonicalName ($username) {
 		# If you want to munge the case of an account name before the
 		# final check, now is your chance.
