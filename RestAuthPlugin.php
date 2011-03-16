@@ -30,19 +30,19 @@ function fnRestAuthUpdatePreferences( $title, $article, $output, $user, $request
 	}
 
 	if ( ! $user->isLoggedIn() ) {
-		return true; // nothing to do for anonymous users
+		return true;
 	}
 
-	global $RestAuthRefresh;
-	if ( is_null( $RestAuthRefresh ) ) {
-		$RestAuthRefresh = 300;
+	global $wgRestAuthRefresh;
+	if ( is_null( $wgRestAuthRefresh ) ) {
+		$wgRestAuthRefresh = 300;
 	}
 
 	// Update local database if the last refresh is more than
-	// RestAuthRefresh seconds ago:
+	// $wgRestAuthRefresh seconds ago:
 	$now = time();
 	$timestamp = $user->getIntOption( 'RestAuthRefreshTimestamp', $now );
-	if ( $timestamp + $RestAuthRefresh < $now ) {
+	if ( $timestamp + $wgRestAuthRefresh < $now ) {
 		global $wgAuth;
 		$wgAuth->updateUser( $user );
 	}
