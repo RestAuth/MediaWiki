@@ -29,6 +29,10 @@ function fnRestAuthUpdatePreferences( $title, $article, $output, $user, $request
 		return true;
 	}
 
+	if ( ! $user->isLoggedIn() ) {
+		return true; // nothing to do for anonymous users
+	}
+
 	global $RestAuthRefresh;
 	if ( is_null( $RestAuthRefresh ) ) {
 		$RestAuthRefresh = 300;
