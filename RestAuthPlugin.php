@@ -25,6 +25,7 @@ function fnRestAuthUpdatePreferences( $title, $article, $output, $user, $request
 			SpecialPage::resolveAlias( $title->getText() ) === "Preferences" ) {
 		// update on Special:Preferences in any case
 		global $wgAuth;
+		$conn = fnRestAuthGetConnection();
 		$wgAuth->updateSettings( $conn, $user );
 		return true;
 	}
@@ -153,7 +154,7 @@ function fnRestAuthSaveOptions( $user, $options ) {
 		throw new MWRestAuthError( $e );
 	}
 
-	foreach( $saveOptions as $key => $value ) {
+	foreach( $options as $key => $value ) {
 		if ( in_array( $key, $wgRestAuthIgnoredOptions ) ) {
 			continue; // filter ignored options
 		}
