@@ -70,7 +70,7 @@ function fnRestAuthSaveSettings( $user ) {
 	$rest_user = new RestAuthUser( $conn, $user->getName() );
 
 	try {
-		$props = $rest_user->get_properties();
+		$props = $rest_user->getProperties();
 	
 		// set real name
 		$prop = fnRestAuthGetOptionName( 'real name' );
@@ -79,17 +79,17 @@ function fnRestAuthSaveSettings( $user ) {
 
 			if ( ! array_key_exists( $prop, $props ) ) {
 				// not set in restauth so far
-				$rest_user->create_property( $prop, $user->mRealName );
+				$rest_user->createProperty( $prop, $user->mRealName )
 			} elseif ( $user->mRealName !== $props[$prop] ) {
 				// set, but have a different value remotely:
-				$rest_user->set_property( $prop, $user->mRealName );
+				$rest_user->setProperty( $prop, $user->mRealName );
 			}
 			// else: local property identical to remote property
 		} elseif ( (! $user->mRealName) && 
 				array_key_exists( $prop, $props ) ) {
 			// We set an empty value and RestAuth defines a real
 			// name. This is equivalent to a deletion request.
-			$rest_user->remove_property( $prop );
+			$rest_user->removeProperty( $prop );
 		}
 
 		// handle email:
@@ -102,7 +102,7 @@ function fnRestAuthSaveSettings( $user ) {
 
 		if ( $user->mEmail && $user->mEmail !== $props[$prop] ) {
 			$dbw = wfGetDB( DB_MASTER );
-			$rest_user->set_property( $prop, $user->mEmail );
+			$rest_user->setProperty( $prop, $user->mEmail );
 	
 			// value for $confirmed copied from User.php:2526
 			// (version 1.16.0)
@@ -112,20 +112,20 @@ function fnRestAuthSaveSettings( $user ) {
 			if ( ! array_key_exists( $prop_confirmed, $props ) 
 					&& $confirmed ) {
 				// confirmed and not set remotely:
-				$rest_user->create_property( $prop_confirmed, '1' );
+				$rest_user->createProperty( $prop_confirmed, '1' );
 			} elseif ( array_key_exists( $prop_confirmed, $props ) 
 					&& ! $confirmed ) {
 				// nut confirmed but confirmed remotely
-				$rest_user->remove_property( $prop_confirmed );
+				$rest_user->removeProperty( $prop_confirmed );
 			}
 		} elseif ( ! $user->mEmail ) {
 			if ( array_key_exists( $prop, $props ) ) {
 			// We set an empty value and RestAuth defines an email.
 			// This is equivalent to a deletion request.
-				$rest_user->remove_property( $prop );
+				$rest_user->removeProperty( $prop );
 			}
 			if ( array_key_exists( $prop_confirmed, $props ) ) {
-				$rest_user->remove_property( $prop_confirmed );
+				$rest_user->removeProperty( $prop_confirmed );
 			}
 		}
 
@@ -149,7 +149,7 @@ function fnRestAuthSaveOptions( $user, $options ) {
 	
 	# Get options from RestAuth service:
 	try {
-		$remote_options = $rest_user->get_properties();
+		$remote_options = $rest_user->getProperties();
 	} catch (RestAuthException $e) {
 		throw new MWRestAuthError( $e );
 	}
@@ -165,7 +165,7 @@ function fnRestAuthSaveOptions( $user, $options ) {
 		if ( array_key_exists( $prop, $remote_options ) ) {
 			if ( $remote_options[$prop] != $value ) {
 				try {
-					$rest_user->set_property( $prop, $value );
+					$rest_user->setProperty( $prop, $value );
 				} catch (RestAuthException $e ) {
 					throw new MWRestAuthError( $e );
 				}
@@ -179,9 +179,9 @@ function fnRestAuthSaveOptions( $user, $options ) {
 					!( $value === false || is_null($value) ) ) ||
 					 $value != User::getDefaultOption( $key ) ) {
 				try {
-					$rest_user->create_property( $prop, $value );
+					$rest_user->createProperty( $prop, $value );
 				} catch (RestAuthPropertyExists $e ) {
-					$rest_user->set_property( $prop, $value );
+					$rest_user->setProperty( $prop, $value );
 					throw new MWRestAuthError( $e );
 				} catch (RestAuthException $e ) {
 					throw new MWRestAuthError( $e );
@@ -203,7 +203,7 @@ function fnRestAuthUserAddGroup( $user, $group ) {
 	$conn = fnRestAuthGetConnection();
 	$group = RestAuthGroup( $conn, $group );
 	try {
-		$group->add_user( $user->getName() );
+		$group->addUser( $user->getName() );
 	} catch (RestAuthException $e) {
 		throw new MWRestAuthError( $e );
 	}
@@ -217,7 +217,7 @@ function fnRestAuthUserRemoveGroup( $user, $group ) {
 	$conn = fnRestAuthGetConnection();
 	$group = RestAuthGroup( $conn, $group );
 	try {
-		$group->remove_user( $user->getName() );
+		$group->removeUser( $user->getName() );
 	} catch (RestAuthException $e) {
 		throw new MWRestAuthError( $e );
 	}
@@ -231,7 +231,7 @@ function fnRestAuthGetConnection() {
 	global $wgRestAuthHost, $wgRestAuthService, $wgRestAuthServicePassword;
 	if ( ! isset( $wgRestAuthHost ) ) $wgRestAuthHost = 'http://localhost';
 
-	return RestAuthConnection::get_connection( $wgRestAuthHost, 
+	return RestAuthConnection::getConnection( $wgRestAuthHost, 
 		$wgRestAuthService, $wgRestAuthServicePassword );
 }
 
@@ -261,7 +261,7 @@ class RestAuthPlugin extends AuthPlugin {
 	public function authenticate ($username, $password) {
 		$user = new RestAuthUser( $this->conn, $username );
 		try {
-			if ( $user->verify_password( $password ) ) {
+			if ( $user->verifyPassword( $password ) ) {
 				return true;
 			} else {
 				return false;
@@ -353,7 +353,7 @@ class RestAuthPlugin extends AuthPlugin {
 
 		// get all options from the RestAuth service
 		try {
-			$rest_options = $rest_user->get_properties();
+			$rest_options = $rest_user->getProperties();
 		} catch (RestAuthException $e) {
 			// if this is the case, we just don't load any options.
 			wfDebug( "Unable to get options from auth-service: " . $e );
@@ -439,7 +439,7 @@ class RestAuthPlugin extends AuthPlugin {
 	public static function updateGroups( &$conn, &$user ) {
 		$user->load();
 		$user->loadGroups();
-		$rest_groups = RestAuthGroup::get_all( $conn, $user->getName() );
+		$rest_groups = RestAuthGroup::getAll( $conn, $user->getName() );
 		$remote_groups = array();
 		foreach ( $rest_groups as $rest_group ) {
 			$remote_groups[] = $rest_group->name;
@@ -508,7 +508,7 @@ class RestAuthPlugin extends AuthPlugin {
 	public function setPassword ($user, $password) {
 		try {
 			$user = new RestAuthUser( $this->conn, $user->getName() );
-			$user->set_password( $password );
+			$user->setPassword( $password );
 			return true;
 		} catch (RestAuthException $e) {
 			throw new MWRestAuthError( $e );
