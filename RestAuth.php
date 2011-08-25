@@ -33,7 +33,7 @@ require_once( dirname(__FILE__) . '/RestAuthError.php' );
 $wgExtensionCredits['other'][] = array(
 	'name' => 'RestAuth',
 	'author' =>'Mathias Ertl',
-	'url' => 'http://fs.fsinf.at/wiki/RestAuth_(MediaWiki_extension)', 
+	'url' => 'https://restauth.net/wiki/MediaWiki', 
 	'description' => 'RestAuth integration.',
 );
 
