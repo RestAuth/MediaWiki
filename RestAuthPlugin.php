@@ -1,7 +1,7 @@
 <?php
 
 require_once( 'AuthPlugin.php' );
-require_once( '/usr/share/php-restauth/restauth.php' );
+require_once( 'RestAuth/restauth.php' );
 
 # group handling:
 $wgHooks['UserAddGroup'][] = 'fnRestAuthUserAddGroup';
@@ -79,7 +79,7 @@ function fnRestAuthSaveSettings( $user ) {
 
 			if ( ! array_key_exists( $prop, $props ) ) {
 				// not set in restauth so far
-				$rest_user->createProperty( $prop, $user->mRealName )
+				$rest_user->createProperty( $prop, $user->mRealName );
 			} elseif ( $user->mRealName !== $props[$prop] ) {
 				// set, but have a different value remotely:
 				$rest_user->setProperty( $prop, $user->mRealName );

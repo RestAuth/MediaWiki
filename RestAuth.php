@@ -26,7 +26,7 @@ if ( $wgRestAuthGlobalOptions ) {
 }
 
 // includes:
-require_once( '/usr/share/php-restauth/restauth.php' );
+require_once( 'RestAuth/restauth.php' );
 require_once( dirname(__FILE__) . '/RestAuthPlugin.php' );
 require_once( dirname(__FILE__) . '/RestAuthError.php' );
 
