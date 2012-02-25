@@ -438,7 +438,7 @@ class RestAuthPlugin extends AuthPlugin {
 	  */
 	public static function updateGroups( &$conn, &$user ) {
 		$user->load();
-		$user->loadGroups();
+		$local_groups = $user->getGroups();
 		$rest_groups = RestAuthGroup::getAll( $conn, $user->getName() );
 		$remote_groups = array();
 		foreach ( $rest_groups as $rest_group ) {
@@ -449,7 +449,7 @@ class RestAuthPlugin extends AuthPlugin {
 		$dbw = wfGetDB( DB_MASTER );
 
 		# remove groups no longer found in the remote database:
-		$rem_groups = array_diff( $user->mGroups, $remote_groups );
+		$rem_groups = array_diff($local_groups, $remote_groups);
 		foreach ( $rem_groups as $group ) {
 			$dbw->delete( 'user_groups',
 				array(
@@ -460,7 +460,7 @@ class RestAuthPlugin extends AuthPlugin {
 		}
 
 		# add new groups found in the remote database:
-		$add_groups = array_diff( $remote_groups, $user->mGroups );
+		$add_groups = array_diff( $remote_groups, $local_groups );
 		foreach ( $add_groups as $group ) {
 			if( $user->getId() ) {
 				$dbw->insert( 'user_groups',
@@ -472,11 +472,6 @@ class RestAuthPlugin extends AuthPlugin {
 					array( 'IGNORE' ) );
 			}
 		}
-
-		$user->loadGroups();
-		$user->mGroups = $remote_groups;
-		$user->mRights = User::getGroupPermissions( $user->getEffectiveGroups( true ) );
-		$user->invalidateCache();
 	}
 
 	/**
