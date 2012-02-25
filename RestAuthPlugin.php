@@ -27,6 +27,8 @@ function fnRestAuthUpdatePreferences( $title, $article, $output, $user, $request
 		global $wgAuth;
 		$conn = fnRestAuthGetConnection();
 		$wgAuth->updateSettings( $conn, $user );
+		
+		$user->invalidateCache();
 		return true;
 	}
 
@@ -449,6 +451,9 @@ class RestAuthPlugin extends AuthPlugin {
 		$dbw = wfGetDB( DB_MASTER );
 
 		# remove groups no longer found in the remote database:
+		# NOTE: We do not call User::removeGroup here, because that would call the hook.
+		#	If this whould be done, this would remove the group from the RestAuth server
+		#	when loading groups from the RestAuth server, which doesn't make sense.
 		$rem_groups = array_diff($local_groups, $remote_groups);
 		foreach ( $rem_groups as $group ) {
 			$dbw->delete( 'user_groups',
@@ -456,10 +461,22 @@ class RestAuthPlugin extends AuthPlugin {
 					'ug_user'  => $user->getID(),
 					'ug_group' => $group,
 				),
-				'RestAuthPlugin::updateGroups' );
+				__METHOD__ );
+			// Remember that the user was in this group
+                        $dbw->insert( 'user_former_groups',
+                                array(
+                                        'ufg_user'  => $this->getID(),
+                                        'ufg_group' => $group,
+                                ),
+                                __METHOD__,
+                                array( 'IGNORE' ) );
+			$user->mGroups = array_diff( $user->mGroups, array( $group ) );
 		}
 
 		# add new groups found in the remote database:
+		# NOTE: We do not call User::addGroup here, because that would call the hook.
+		#	If this whould be done, this would add the group at the RestAuth server
+		#	when loading groups from the RestAuth server, which doesn't make sense.
 		$add_groups = array_diff( $remote_groups, $local_groups );
 		foreach ( $add_groups as $group ) {
 			if( $user->getId() ) {
@@ -468,10 +485,15 @@ class RestAuthPlugin extends AuthPlugin {
 						'ug_user'  => $user->getID(),
 						'ug_group' => $group,
 					),
-					'RestAuthPlugin::updateGroups',
+					__METHOD__,
 					array( 'IGNORE' ) );
 			}
+			$user->mGroups[] = $group;
 		}
+		
+		# reload cache
+		$user->getGroups();
+		$user->mRights = User::getGroupPermissions( $user->getEffectiveGroups( true ) );
 	}
 
 	/**
@@ -482,6 +504,9 @@ class RestAuthPlugin extends AuthPlugin {
 		# When a user logs in, optionally fill in preferences and such.	
 		RestAuthPlugin::updateGroups( $this->conn, $user );
 		RestAuthPlugin::updateSettings( $this->conn, $user );
+
+		# reload everything
+		$user->invalidateCache();
 	}
 
 	public function autoCreate () {
