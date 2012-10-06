@@ -11,7 +11,7 @@ $wgHooks['UserRemoveGroup'][] = 'fnRestAuthUserRemoveGroup';
 $wgHooks['UserSaveSettings'][] = 'fnRestAuthSaveSettings';
 $wgHooks['UserSaveOptions'][] = 'fnRestAuthSaveOptions';
 
-# auto-update local database 
+# auto-update local database
 $wgHooks['BeforeInitialize'][] = 'fnRestAuthUpdatePreferences';
 
 /**
@@ -21,13 +21,13 @@ $wgHooks['BeforeInitialize'][] = 'fnRestAuthUpdatePreferences';
  * Please see the documentation for the BeforeInitialize Hook if needed.
  */
 function fnRestAuthUpdatePreferences( $title, $article, $output, $user, $request, $this ) {
-	if ( $title->getNamespace() === NS_SPECIAL && 
+	if ( $title->getNamespace() === NS_SPECIAL &&
 			SpecialPage::resolveAlias( $title->getText() ) === "Preferences" ) {
 		// update on Special:Preferences in any case
 		global $wgAuth;
 		$conn = fnRestAuthGetConnection();
 		$wgAuth->updateSettings( $conn, $user );
-		
+
 		$user->invalidateCache();
 		return true;
 	}
@@ -73,7 +73,7 @@ function fnRestAuthSaveSettings( $user ) {
 
 	try {
 		$props = $rest_user->getProperties();
-	
+
 		// set real name
 		$prop = fnRestAuthGetOptionName( 'real name' );
 		if ( $user->mRealName && $user->mRealName !== $props[$prop] ) {
@@ -87,7 +87,7 @@ function fnRestAuthSaveSettings( $user ) {
 				$rest_user->setProperty( $prop, $user->mRealName );
 			}
 			// else: local property identical to remote property
-		} elseif ( (! $user->mRealName) && 
+		} elseif ( (! $user->mRealName) &&
 				array_key_exists( $prop, $props ) ) {
 			// We set an empty value and RestAuth defines a real
 			// name. This is equivalent to a deletion request.
@@ -105,17 +105,17 @@ function fnRestAuthSaveSettings( $user ) {
 		if ( $user->mEmail && $user->mEmail !== $props[$prop] ) {
 			$dbw = wfGetDB( DB_MASTER );
 			$rest_user->setProperty( $prop, $user->mEmail );
-	
+
 			// value for $confirmed copied from User.php:2526
 			// (version 1.16.0)
-			$confirmed = $dbw->timestampOrNull( 
+			$confirmed = $dbw->timestampOrNull(
 				$user->mEmailAuthenticated );
 
-			if ( ! array_key_exists( $prop_confirmed, $props ) 
+			if ( ! array_key_exists( $prop_confirmed, $props )
 					&& $confirmed ) {
 				// confirmed and not set remotely:
 				$rest_user->createProperty( $prop_confirmed, '1' );
-			} elseif ( array_key_exists( $prop_confirmed, $props ) 
+			} elseif ( array_key_exists( $prop_confirmed, $props )
 					&& ! $confirmed ) {
 				// nut confirmed but confirmed remotely
 				$rest_user->removeProperty( $prop_confirmed );
@@ -148,7 +148,7 @@ function fnRestAuthSaveOptions( $user, $options ) {
 	$rest_user = new RestAuthUser( $conn, $user->getName() );
 	$update_options = array();
 	$create_options = array();
-	
+
 	# Get options from RestAuth service:
 	try {
 		$remote_options = $rest_user->getProperties();
@@ -160,8 +160,8 @@ function fnRestAuthSaveOptions( $user, $options ) {
 		if ( in_array( $key, $wgRestAuthIgnoredOptions ) ) {
 			continue; // filter ignored options
 		}
-		
-		// get name that this option has remotly 
+
+		// get name that this option has remotly
 		$prop = fnRestAuthGetOptionName( $key );
 
 		if ( array_key_exists( $prop, $remote_options ) ) {
@@ -171,7 +171,7 @@ function fnRestAuthSaveOptions( $user, $options ) {
 				} catch (RestAuthException $e ) {
 					throw new MWRestAuthError( $e );
 				}
-			} 
+			}
 		} else {
 			// The setting does not yet exist in the
 			// RestAuth service. Only save it when the new
@@ -233,7 +233,7 @@ function fnRestAuthGetConnection() {
 	global $wgRestAuthHost, $wgRestAuthService, $wgRestAuthServicePassword;
 	if ( ! isset( $wgRestAuthHost ) ) $wgRestAuthHost = 'http://localhost';
 
-	return RestAuthConnection::getConnection( $wgRestAuthHost, 
+	return RestAuthConnection::getConnection( $wgRestAuthHost,
 		$wgRestAuthService, $wgRestAuthServicePassword );
 }
 
@@ -256,8 +256,8 @@ class RestAuthPlugin extends AuthPlugin {
 			throw new MWRestAuthError( $e );
 		}
 	}
-	
-	/** 
+
+	/**
 	 * Check if a username+password pair is a valid login.
 	 */
 	public function authenticate ($username, $password) {
@@ -321,7 +321,7 @@ class RestAuthPlugin extends AuthPlugin {
                                                 'up_property' => $key,
                                                 'up_value' => $value,
                                         );
-                        }  
+                        }
                         if ( $extuser && isset( $wgAllowPrefChange[$key] ) ) {
                                 switch ( $wgAllowPrefChange[$key] ) {
                                         case 'local':
@@ -384,7 +384,7 @@ class RestAuthPlugin extends AuthPlugin {
 				}
 				$prop_name = $key;
 			}
-		
+
 			if ( in_array( $prop_name, $wgRestAuthIgnoredOptions ) ) {
 				continue; // filter ignored options
 			}
@@ -419,7 +419,6 @@ class RestAuthPlugin extends AuthPlugin {
                                 'user_real_name' => $user->mRealName,
                                 'user_email' => $user->mEmail,
                                 'user_email_authenticated' => $dbw->timestampOrNull( $user->mEmailAuthenticated ),
-                                'user_options' => '',
                                 'user_touched' => $dbw->timestamp( $user->mTouched ),
                                 'user_token' => $user->mToken,
                                 'user_email_token' => $user->mEmailToken,
@@ -490,7 +489,7 @@ class RestAuthPlugin extends AuthPlugin {
 			}
 			$user->mGroups[] = $group;
 		}
-		
+
 		# reload cache
 		$user->getGroups();
 		$user->mRights = User::getGroupPermissions( $user->getEffectiveGroups( true ) );
@@ -501,7 +500,7 @@ class RestAuthPlugin extends AuthPlugin {
 	 * from the remote database.
 	 */
 	function updateUser (&$user) {
-		# When a user logs in, optionally fill in preferences and such.	
+		# When a user logs in, optionally fill in preferences and such.
 		RestAuthPlugin::updateGroups( $this->conn, $user );
 		RestAuthPlugin::updateSettings( $this->conn, $user );
 
@@ -524,7 +523,7 @@ class RestAuthPlugin extends AuthPlugin {
 	public function allowPasswordChange () {
 		return true;
 	}
-	
+
 	public function setPassword ($user, $password) {
 		try {
 			$user = new RestAuthUser( $this->conn, $user->getName() );
@@ -534,7 +533,7 @@ class RestAuthPlugin extends AuthPlugin {
 			throw new MWRestAuthError( $e );
 		}
 	}
-	
+
 /*	function updateExternalDB ($user) {
 		# Update user information in the external authentication
 		# database.
@@ -560,7 +559,7 @@ class RestAuthPlugin extends AuthPlugin {
 
 	public function strict () {
 		/**
-		 * Always returns true. This stops MediaWiki from checking 
+		 * Always returns true. This stops MediaWiki from checking
 		 * against the local database's password fields in case the
 		 * RestAuth authentication fails.
 		 */
