@@ -365,15 +365,17 @@ class RestAuthPlugin extends AuthPlugin {
 		// take care of setting all settings and options to the current
 		// user object.
 		foreach( $rest_options as $key => $value ) {
-			if ( strpos( $key, 'mediawiki ' ) === 0 ) {
+			if (strpos($key, 'mediawiki ') === 0) {
 				// if this is a mediawiki specific setting, remove the
 				// prefix:
 				$prop_name = substr( $key, 10 );
 			} else {
 				// This setting is not specific to MediaWiki. Only use
 				// the setting if we find it in $wgRestAuthGlobalOptions.
-				if ( ! ( array_key_exists( $key, $wgRestAuthGlobalOptions )
-						&& $wgRestAuthGlobalOptions[$key] ) ) {
+                if (is_null($wgRestAuthGlobalOptions) ||
+                    !(array_key_exists($key, $wgRestAuthGlobalOptions)
+					  && $wgRestAuthGlobalOptions[$key]))
+                {
 					continue;
 				}
 
