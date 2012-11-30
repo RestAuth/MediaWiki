@@ -1,7 +1,7 @@
 <?php
 
-require_once( 'AuthPlugin.php' );
-require_once( 'RestAuth/restauth.php' );
+require_once("$IP/includes/AuthPlugin.php");
+require_once('RestAuth/restauth.php');
 
 # group handling:
 $wgHooks['UserAddGroup'][] = 'fnRestAuthUserAddGroup';
@@ -203,9 +203,9 @@ function fnRestAuthSaveOptions( $user, $options ) {
  */
 function fnRestAuthUserAddGroup( $user, $group ) {
 	$conn = fnRestAuthGetConnection();
-	$group = RestAuthGroup( $conn, $group );
+	$ra_group = RestAuthGroup( $conn, $group );
 	try {
-		$group->addUser( $user->getName() );
+		$ra_group->addUser( $user->getName() );
 	} catch (RestAuthException $e) {
 		throw new MWRestAuthError( $e );
 	}
@@ -217,9 +217,9 @@ function fnRestAuthUserAddGroup( $user, $group ) {
  */
 function fnRestAuthUserRemoveGroup( $user, $group ) {
 	$conn = fnRestAuthGetConnection();
-	$group = RestAuthGroup( $conn, $group );
+	$ra_group = RestAuthGroup( $conn, $group );
 	try {
-		$group->removeUser( $user->getName() );
+		$ra_group->removeUser( $user->getName() );
 	} catch (RestAuthException $e) {
 		throw new MWRestAuthError( $e );
 	}
