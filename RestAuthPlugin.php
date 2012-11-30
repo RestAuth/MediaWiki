@@ -59,8 +59,7 @@ function fnRestAuthUpdatePreferences($title, $article, $output, $user, $request,
 
     if ($update) {
         global $wgAuth;
-        $conn = fnRestAuthGetConnection();
-        $wgAuth->updateUser( $conn, $user );
+        $wgAuth->updateUser($user);
         $user->invalidateCache();
     }
 
