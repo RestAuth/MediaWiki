@@ -464,7 +464,7 @@ class RestAuthPlugin extends AuthPlugin {
 			// Remember that the user was in this group
                         $dbw->insert( 'user_former_groups',
                                 array(
-                                        'ufg_user'  => $this->getID(),
+                                        'ufg_user'  => $user->getID(),
                                         'ufg_group' => $group,
                                 ),
                                 __METHOD__,
