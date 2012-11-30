@@ -14,40 +14,54 @@ $wgHooks['UserSaveOptions'][] = 'fnRestAuthSaveOptions';
 # auto-update local database
 $wgHooks['BeforeInitialize'][] = 'fnRestAuthUpdatePreferences';
 
+// default settings;
+if (! isset($wgRestAuthHost)) $wgRestAuthHost = 'localhost';
+$wgRestAuthIgnoredOptions = array(
+    "watchlisttoken",
+);
+
+// default, if not set at all
+$wgRestAuthGlobalOptions = array(
+    'language' => true,
+    'real name' => true,
+    'email' => true,
+    'email confirmed' => true,
+);
+$wgRestAuthRefresh = 300;
+
 /**
  * This function is called upon every pageview and refreshes the local database
  * cache if the last refresh is more than $RestAuthRefresh seconds ago.
  *
  * Please see the documentation for the BeforeInitialize Hook if needed.
  */
-function fnRestAuthUpdatePreferences( $title, $article, $output, $user, $request, $this ) {
-    if ( ! $user->isLoggedIn() ) {
+function fnRestAuthUpdatePreferences($title, $article, $output, $user, $request, $this) {
+    if (!$user->isLoggedIn()) {
         return true;
     }
 
+    $update = false;
+
     if ( $title->getNamespace() === NS_SPECIAL &&
-            SpecialPage::resolveAlias( $title->getText() ) === "Preferences" ) {
-        // update on Special:Preferences in any case
+            SpecialPage::resolveAlias($title->getText()) === "Preferences") {
+        $update = true; // SpecialPreferences updates in any case
+    } else {
+        global $wgRestAuthRefresh;
+
+        // Update local database if the last refresh is more than
+        // $wgRestAuthRefresh seconds ago:
+        $now = time();
+        $timestamp = $user->getIntOption('RestAuthRefreshTimestamp', $now);
+        if ($timestamp + $wgRestAuthRefresh < $now) {
+            $update = true;
+        }
+    }
+
+    if ($update) {
         global $wgAuth;
         $conn = fnRestAuthGetConnection();
         $wgAuth->updateUser( $conn, $user );
-
         $user->invalidateCache();
-        return true;
-    }
-
-    global $wgRestAuthRefresh;
-    if ( is_null( $wgRestAuthRefresh ) ) {
-        $wgRestAuthRefresh = 300;
-    }
-
-    // Update local database if the last refresh is more than
-    // $wgRestAuthRefresh seconds ago:
-    $now = time();
-    $timestamp = $user->getIntOption( 'RestAuthRefreshTimestamp', $now );
-    if ( $timestamp + $wgRestAuthRefresh < $now ) {
-        global $wgAuth;
-        $wgAuth->updateUser( $user );
     }
 
     return true;
