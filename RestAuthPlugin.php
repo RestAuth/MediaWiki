@@ -385,7 +385,7 @@ class RestAuthPlugin extends AuthPlugin {
 				$prop_name = $key;
 			}
 
-			if ( in_array( $prop_name, $wgRestAuthIgnoredOptions ) ) {
+			if (!is_null($wgRestAuthIgnoredOptions) && in_array($prop_name, $wgRestAuthIgnoredOptions)) {
 				continue; // filter ignored options
 			}
 
