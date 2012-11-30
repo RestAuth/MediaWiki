@@ -203,7 +203,7 @@ function fnRestAuthSaveOptions( $user, $options ) {
  */
 function fnRestAuthUserAddGroup( $user, $group ) {
 	$conn = fnRestAuthGetConnection();
-	$ra_group = RestAuthGroup( $conn, $group );
+	$ra_group = new RestAuthGroup( $conn, $group );
 	try {
 		$ra_group->addUser( $user->getName() );
 	} catch (RestAuthException $e) {
@@ -217,7 +217,7 @@ function fnRestAuthUserAddGroup( $user, $group ) {
  */
 function fnRestAuthUserRemoveGroup( $user, $group ) {
 	$conn = fnRestAuthGetConnection();
-	$ra_group = RestAuthGroup( $conn, $group );
+	$ra_group = new RestAuthGroup( $conn, $group );
 	try {
 		$ra_group->removeUser( $user->getName() );
 	} catch (RestAuthException $e) {
