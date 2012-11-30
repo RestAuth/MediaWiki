@@ -21,18 +21,18 @@ $wgHooks['BeforeInitialize'][] = 'fnRestAuthUpdatePreferences';
  * Please see the documentation for the BeforeInitialize Hook if needed.
  */
 function fnRestAuthUpdatePreferences( $title, $article, $output, $user, $request, $this ) {
+	if ( ! $user->isLoggedIn() ) {
+		return true;
+	}
+
 	if ( $title->getNamespace() === NS_SPECIAL &&
 			SpecialPage::resolveAlias( $title->getText() ) === "Preferences" ) {
 		// update on Special:Preferences in any case
 		global $wgAuth;
 		$conn = fnRestAuthGetConnection();
-		$wgAuth->updateSettings( $conn, $user );
+		$wgAuth->updateUser( $conn, $user );
 
 		$user->invalidateCache();
-		return true;
-	}
-
-	if ( ! $user->isLoggedIn() ) {
 		return true;
 	}
 
