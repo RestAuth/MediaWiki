@@ -180,7 +180,7 @@ function fnRestAuthSaveOptions( $user, $options ) {
         if ( array_key_exists( $prop, $remote_options ) ) {
             if ( $remote_options[$prop] != $value ) {
                 try {
-                    $rest_user->setProperty( $prop, $value );
+                    $rest_user->setProperty( $prop, (string)$value );
                 } catch (RestAuthException $e ) {
                     throw new MWRestAuthError( $e );
                 }
@@ -194,9 +194,9 @@ function fnRestAuthSaveOptions( $user, $options ) {
                     !( $value === false || is_null($value) ) ) ||
                      $value != User::getDefaultOption( $key ) ) {
                 try {
-                    $rest_user->createProperty( $prop, $value );
+                    $rest_user->createProperty( $prop, (string)$value );
                 } catch (RestAuthPropertyExists $e ) {
-                    $rest_user->setProperty( $prop, $value );
+                    $rest_user->setProperty( $prop, (string)$value );
                     throw new MWRestAuthError( $e );
                 } catch (RestAuthException $e ) {
                     throw new MWRestAuthError( $e );
