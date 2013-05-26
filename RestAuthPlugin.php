@@ -79,73 +79,113 @@ function fnRestAuthGetOptionName($option) {
     }
 }
 
+define("RESTAUTH_PROP_NO_ACTION", 0);
+define("RESTAUTH_PROP_UPDATE", 1);
+define("RESTAUTH_PROP_DELETE", 2);
+
+/**
+ * Decide what do do with a setting. Should it be updated or deleted?
+ *
+ * @param $user: The user to update
+ * @param $prop: The property name of interest (e.g. 'email')
+ * @param $ra_props: Properties fetched from RestAuth
+ * @param $ra_prop: Remote name of the property
+ */
+function fnRestAuthGetSettingAction($prop, $ra_props, $ra_prop) {
+    wfDebug("---- Get action for $prop -> $ra_prop\n");
+    $ra_exists = array_key_exists($ra_prop, $ra_props);
+    wfDebug("---- We exist: $ra_exists\n");
+
+    if ($prop) {
+        wfDebug("---- \$prop == true ('$prop').\n");
+        if (!$ra_exists || $prop !== $ra_props[$ra_prop]) {
+            wfdebug("---- UPDATE '$ra_prop' (" . $ra_props[$ra_prop] . " --> '$prop')\n");
+            // don't exist in RestAuth or are different in RestAuth.
+            return RESTAUTH_PROP_UPDATE;
+        }
+    } elseif ($ra_exists) {
+        wfDebug("---- DELETE '$ra_prop'");
+        // not locally present, but still available remotely
+        return RESTAUTH_PROP_DELETE;
+    }
+
+    wfDebug("---- NO ACTION FOR '$ra_prop'\n");
+    // other cases require no action.
+    return RESTAUTH_PROP_NO_ACTION;
+}
+
+/**
+ * Save settings. Settings are a few special options that - for MediaWiki - are
+ * stored directly in the user table. Other options are saved with
+ * fnRestAuthsaveOptions.
+ */
 function fnRestAuthSaveSettings($user) {
+    wfDebug("- START: fnRestAuthSaveSettings");
     global $wgRestAuthIgnoredOptions, $wgRestAuthGlobalOptions;
     $conn = fnRestAuthGetConnection();
-    $rest_user = new RestAuthUser($conn, $user->getName());
+    $ra_user = new RestAuthUser($conn, $user->getName());
+    $set_properties = array();
+
+    $mapping = array(
+        'mRealName' => fnRestAuthGetOptionName('real name'),
+        'email' => fnRestAuthGetOptionName('email'),
+    );
 
     try {
-        $props = $rest_user->getProperties();
+        $ra_props = $ra_user->getProperties();
 
-        // set real name
-        $prop = fnRestAuthGetOptionName('real name');
-        if ($user->mRealName && $user->mRealName !== $props[$prop]) {
-            // real name is set
-
-            if (! array_key_exists($prop, $props)) {
-                // not set in restauth so far
-                $rest_user->createProperty($prop, $user->mRealName);
-            } elseif ($user->mRealName !== $props[$prop]) {
-                // set, but have a different value remotely:
-                $rest_user->setProperty($prop, $user->mRealName);
+        foreach ($mapping as $prop => $ra_prop) {
+            $action = fnRestAuthGetSettingAction(
+                $user->$prop, $ra_props, $ra_prop);
+            if ($action === RESTAUTH_PROP_UPDATE) {
+                wfDebug("--- SaveSettings: Update $prop '" . $user->$prop . "' to $ra_prop\n");
+                $set_properties[$ra_prop] = $user->$prop;
+            } elseif ($action === RESTAUTH_PROP_DELETE) {
+                wfDebug("--- SaveSettings: Delete $ra_prop\n");
+                $ra_user->removeProperty($ra_prop);
             }
-            // else: local property identical to remote property
-        } elseif ((! $user->mRealName) &&
-                array_key_exists($prop, $props)) {
-            // We set an empty value and RestAuth defines a real
-            // name. This is equivalent to a deletion request.
-            $rest_user->removeProperty($prop);
         }
 
-        // handle email:
-        $prop = fnRestAuthGetOptionName('email');
-        if (strpos($prop, 'mediawiki ') === 0) {
+        // email confirmed is handled seperately, because locally its a boolean
+        // value and we need to set '0' or '1' remotely (RestAuth properties
+        // are always strings).
+
+        // 'email confirmed' is prefixed if 'email' is prefixed.
+        if (strpos($mapping['email'], 'mediawiki ') === 0) {
             $prop_confirmed = 'mediawiki email confirmed';
         } else {
             $prop_confirmed = 'email confirmed';
         }
 
-        if ($user->mEmail && $user->mEmail !== $props[$prop]) {
-            $dbw = wfGetDB(DB_MASTER);
-            $rest_user->setProperty($prop, $user->mEmail);
-
-            // value for $confirmed copied from User.php:2526
-            // (version 1.16.0)
-            $confirmed = $dbw->timestampOrNull(
-                $user->mEmailAuthenticated);
-
-            if (! array_key_exists($prop_confirmed, $props)
-                    && $confirmed) {
-                // confirmed and not set remotely:
-                $rest_user->createProperty($prop_confirmed, '1');
-            } elseif (array_key_exists($prop_confirmed, $props)
-                    && ! $confirmed) {
-                // nut confirmed but confirmed remotely
-                $rest_user->removeProperty($prop_confirmed);
-            }
-        } elseif (! $user->mEmail) {
-            if (array_key_exists($prop, $props)) {
-            // We set an empty value and RestAuth defines an email.
-            // This is equivalent to a deletion request.
-                $rest_user->removeProperty($prop);
-            }
-            if (array_key_exists($prop_confirmed, $props)) {
-                $rest_user->removeProperty($prop_confirmed);
-            }
+        // boolean condition copied from includes/User.php:2825 (version 1.19.2)
+        $dbw = wfGetDB(DB_MASTER);
+        if ($dbw->timestampOrNull($user->mEmailAuthenticated)) {
+            $confirmed = '1';
+        } else {
+            $confirmed = '0';
         }
 
+        // finally, decide if we should update/delete:
+        $action = fnRestAuthGetSettingAction(
+            $confirmed, $ra_props, $prop_confirmed);
+        if ($action === RESTAUTH_PROP_UPDATE) {
+            wfDebug("--- SaveSettings: Set $prop_confirmed to $confirmed\n");
+            $set_properties[$prop_confirmed] = $confirmed;
+        } elseif ($action === RESTAUTH_PROP_DELETE) {
+            wfdebug("--- SaveSettings: Delete $prop_confirmed\n");
+            $ra_user->removeProperty($prop_confirmed);
+        }
+
+        // finally set all properties in one go:
+        if (count($set_properties) > 0) {
+            wfDebug("--- Set " . count($set_properties) . " properties\n");
+            $ra_user->setProperties($set_properties);
+        }
+
+        wfDebug("- END: fnRestAuthSaveSettings");
         return true;
     } catch (RestAuthException $e) {
+        wfDebug("- EXCEPTION: fnRestAuthSaveSettings");
         throw new MWRestAuthError($e);
     }
 }
@@ -307,68 +347,79 @@ class RestAuthPlugin extends AuthPlugin {
                 return wfTimestamp(TS_MW, time() + $wgClockSkewFudge);
         }
 
+    /**
+     * This saves $user->mOptions to the database.
+     */
     public static function updateOptions(&$user) {
-                global $wgAllowPrefChange;
+        wfDebug("- START: updateOptions\n");
+        global $wgAllowPrefChange;
 
-                $extuser = ExternalUser::newFromUser($user);
+        $extuser = ExternalUser::newFromUser($user);
 
         // hack to load options:
-                //$user->loadOptions();
+        //$user->loadOptions();
         $user->getOption('foo', 'bar');
 
-                $dbw = wfGetDB(DB_MASTER);
+        $dbw = wfGetDB(DB_MASTER);
 
-                $insert_rows = array();
+        $insert_rows = array();
 
-                $saveOptions = $user->mOptions;
+        $saveOptions = $user->mOptions;
 
         // hook call removed here
 
-                foreach($saveOptions as $key => $value) {
-                        # Don't bother storing default values
-                        if ((is_null(User::getDefaultOption($key)) &&
-                                        !($value === false || is_null($value))) ||
-                                        $value != User::getDefaultOption($key)) {
-                                $insert_rows[] = array(
-                                                'up_user' => $user->getId(),
-                                                'up_property' => $key,
-                                                'up_value' => $value,
-                                        );
-                        }
-                        if ($extuser && isset($wgAllowPrefChange[$key])) {
-                                switch ($wgAllowPrefChange[$key]) {
-                                        case 'local':
-                                        case 'message':
-                                                break;
-                                        case 'semiglobal':
-                                        case 'global':
-                                                $extuser->setPref($key, $value);
-                                }
-                        }
+        foreach($saveOptions as $key => $value) {
+            # Don't bother storing default values
+            if ((is_null(User::getDefaultOption($key)) &&
+                        !($value === false || is_null($value))) ||
+                        $value != User::getDefaultOption($key)) {
+                $insert_rows[] = array(
+                    'up_user' => $user->getId(),
+                    'up_property' => $key,
+                    'up_value' => $value,
+                );
+            }
+            if ($extuser && isset($wgAllowPrefChange[$key])) {
+                switch ($wgAllowPrefChange[$key]) {
+                    case 'local':
+                    case 'message':
+                        break;
+                    case 'semiglobal':
+                    case 'global':
+                        $extuser->setPref($key, $value);
                 }
+            }
+        }
 
         $dbw->begin();
-                $dbw->delete('user_properties', array('up_user' => $user->getId()), __METHOD__);
-                $dbw->insert('user_properties', $insert_rows, __METHOD__);
-                $dbw->commit();
+        $dbw->delete('user_properties', array('up_user' => $user->getId()), __METHOD__);
+        $dbw->insert('user_properties', $insert_rows, __METHOD__);
+        $dbw->commit();
+        wfDebug("- END: updateOptions\n");
     }
 
+    /**
+     * Update local settings from RestAuth.
+     *
+     * This function saves settings to the database and also calls updateOptions.
+     */
     public static function updateSettings(&$conn, &$user) {
         // initialize local user:
         $user->load();
         if (wfReadOnly()) { return; }
         if (0 == $user->mId) { return; }
+        wfDebug("- START: updateSettings\n");
 
         // get remote user:
         global $wgRestAuthIgnoredOptions, $wgRestAuthGlobalOptions;
-        $rest_user = new RestAuthUser($conn, $user->getName());
+        $ra_user = new RestAuthUser($conn, $user->getName());
 
         // used as a complete list of all options:
         $default_options = User::getDefaultOptions();
 
         // get all options from the RestAuth service
         try {
-            $rest_options = $rest_user->getProperties();
+            $rest_options = $ra_user->getProperties();
         } catch (RestAuthException $e) {
             // if this is the case, we just don't load any options.
             wfDebug("Unable to get options from auth-service: " . $e);
@@ -425,28 +476,30 @@ class RestAuthPlugin extends AuthPlugin {
         $user->mTouched = self::newTouchedTimestamp();
 
         $dbw = wfGetDB(DB_MASTER);
-                $dbw->update('user',
-                        array( /* SET */
-                                'user_name' => $user->mName,
-                                'user_password' => $user->mPassword,
-                                'user_newpassword' => $user->mNewpassword,
-                                'user_newpass_time' => $dbw->timestampOrNull($user->mNewpassTime),
-                                'user_real_name' => $user->mRealName,
-                                'user_email' => $user->mEmail,
-                                'user_email_authenticated' => $dbw->timestampOrNull($user->mEmailAuthenticated),
-                                'user_touched' => $dbw->timestamp($user->mTouched),
-                                'user_token' => $user->mToken,
-                                'user_email_token' => $user->mEmailToken,
-                                'user_email_token_expires' => $dbw->timestampOrNull($user->mEmailTokenExpires),
-                        ), array( /* WHERE */
-                                'user_id' => $user->mId
-                        ), __METHOD__
-                );
+        $dbw->update('user',
+            array( /* SET */
+                'user_name' => $user->mName,
+                'user_password' => $user->mPassword,
+                'user_newpassword' => $user->mNewpassword,
+                'user_newpass_time' => $dbw->timestampOrNull($user->mNewpassTime),
+                'user_real_name' => $user->mRealName,
+                'user_email' => $user->mEmail,
+                'user_email_authenticated' => $dbw->timestampOrNull($user->mEmailAuthenticated),
+                'user_touched' => $dbw->timestamp($user->mTouched),
+                'user_token' => $user->mToken,
+                'user_email_token' => $user->mEmailToken,
+                'user_email_token_expires' => $dbw->timestampOrNull($user->mEmailTokenExpires),
+            ), array( /* WHERE */
+                'user_id' => $user->mId
+            ), __METHOD__
+        );
 
-                RestAuthPlugin::updateOptions($user);
+        RestAuthPlugin::updateOptions($user);
 
-                $user->invalidateCache();
-                $user->getUserPage()->invalidateCache();
+        $user->invalidateCache();
+        $user->getUserPage()->invalidateCache();
+
+        wfDebug("- END: updateSettings\n");
     }
 
     /**
