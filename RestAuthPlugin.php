@@ -59,7 +59,7 @@ function fnRestAuthUpdateFromRestAuth($title, $article, $output, $user, $request
 
     if ($update) {
         global $wgAuth;
-        $wgAuth->refreshUserFromRestAuth($user);
+        $wgAuth->updateUser($user);
         $user->invalidateCache();
     }
 
@@ -370,15 +370,15 @@ class RestAuthPlugin extends AuthPlugin {
      * Called whenever a user logs in. It updates local groups to mach those
      * from the remote database.
      */
-    public function refreshUserFromRestAuth (&$user) {
-        wfDebug("- START refreshUserFromRestAuth()\n");
+    public function updateUser (&$user) {
+        wfDebug("- START updateUser()\n");
         # When a user logs in, optionally fill in preferences and such.
         $this->refreshUserGroupsFromRestAuth($user);
         $this->refreshUserSettingsFromRestAuth($user);
 
         # reload everything
         $user->invalidateCache();
-        wfDebug("- END refreshUserFromRestAuth()\n");
+        wfDebug("- END updateUser()\n");
     }
 
     public function autoCreate () {
@@ -554,15 +554,15 @@ class RestAuthPlugin extends AuthPlugin {
 
     /**
      * Update a user from RestAuth. This is called when a new user was created
-     * (we don't need it then) or when a user logs in and doesn't yet exist
-     * locally.
+     * ($autocreate=false) or when a user logs in and doesn't yet exist
+     * locally ($autocreate=true).
      */
-    public function initUser (&$user, $autocreate=false) {
-        wfDebug('- initUser()');
-        # When creating a user account, optionally fill in preferences
-        # and such.
-        $this->refreshUserGroupsFromRestAuth($user);
-        $this->refreshUserSettingsFromRestAuth($user);
+    public function initUser (&$user, $autocreate) {
+        if ($autocreate) {
+            // true upon login and user doesn't exist locally
+            $this->refreshUserGroupsFromRestAuth($user);
+            $this->refreshUserSettingsFromRestAuth($user);
+        }
     }
 
     public function strict () {
