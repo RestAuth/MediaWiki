@@ -224,149 +224,6 @@ class RestAuthPlugin extends AuthPlugin {
     }
 
     /**
-     * Update local settings from RestAuth.
-     *
-     * This function saves settings to the database.
-     */
-    public function refreshUserSettingsFromRestAuth(&$user) {
-        // initialize local user:
-        $user->load();
-        if (wfReadOnly()) { return; }
-        if (0 == $user->mId) { return; }
-        wfDebug("- START: refreshUserSettingsFromRestAuth\n");
-
-        // get remote user:
-        global $wgRestAuthIgnoredOptions, $wgRestAuthGlobalOptions;
-        $ra_user = new RestAuthUser($this->conn, $user->getName());
-
-        // used as a complete list of all options:
-        $default_options = User::getDefaultOptions();
-
-        // get all options from the RestAuth service
-        try {
-            $rest_options = $ra_user->getProperties();
-        } catch (RestAuthException $e) {
-            // if this is the case, we just don't load any options.
-            wfDebug("Unable to get options from auth-service: " . $e . "\n");
-            return;
-        }
-
-        // take care of setting all settings and options to the current
-        // user object.
-        foreach($rest_options as $key => $value) {
-            if (strpos($key, 'mediawiki ') === 0) {
-                // if this is a mediawiki specific setting, remove the
-                // prefix:
-                $prop_name = substr($key, 10);
-            } else {
-                // This setting is not specific to MediaWiki. Only use
-                // the setting if we find it in $wgRestAuthGlobalOptions.
-                if (is_null($wgRestAuthGlobalOptions) ||
-                    !(array_key_exists($key, $wgRestAuthGlobalOptions)
-                      && $wgRestAuthGlobalOptions[$key]))
-                {
-                    continue;
-                }
-
-                // This is a global option where we also have an option
-                // specific to MediaWiki - which we use instead
-                if (array_key_exists('mediawiki ' . $key, $rest_options)) {
-                    continue;
-                }
-                $prop_name = $key;
-            }
-
-            if (!is_null($wgRestAuthIgnoredOptions) && in_array($prop_name, $wgRestAuthIgnoredOptions)) {
-                continue; // filter ignored options
-            }
-
-            if ($prop_name == 'real name') {
-                $user->mRealName = $value;
-            } elseif ($prop_name == 'email') {
-                $user->mEmail = $value;
-            } elseif ($prop_name == 'email confirmed') {
-                $user->mEmailConfirmed = $value;
-            } elseif (array_key_exists($prop_name, $default_options)) {
-                // finally use the property from RestAuth, if the
-                // property exists as a default option:
-                $user->mOptions[$prop_name] = $value;
-                $user->mOptionsOverrides[$prop_name] = $value;
-            }
-        }
-
-        // update RestAuthRefreshTimestamp:
-        $user->mOptions['RestAuthRefreshTimestamp'] = time();
-
-        // begin saving the user to the local database:
-        $user->mTouched = self::newTouchedTimestamp();
-
-        // save user to the database:
-        $user->saveSettings();
-        wfDebug("- END: refreshUserSettingsFromRestAuth\n");
-    }
-
-    /**
-      * Synchronize the local group database with the remote database.
-      */
-    public function refreshUserGroupsFromRestAuth(&$user) {
-        $user->load();
-        $local_groups = $user->getGroups();
-        $rest_groups = RestAuthGroup::getAll($this->conn, $user->getName());
-        $remote_groups = array();
-        foreach ($rest_groups as $rest_group) {
-            $remote_groups[] = $rest_group->name;
-        }
-
-        # get database slave:
-        $dbw = wfGetDB(DB_MASTER);
-
-        # remove groups no longer found in the remote database:
-        # NOTE: We do not call User::removeGroup here, because that would call the hook.
-        #    If this whould be done, this would remove the group from the RestAuth server
-        #    when loading groups from the RestAuth server, which doesn't make sense.
-        $rem_groups = array_diff($local_groups, $remote_groups);
-        foreach ($rem_groups as $group) {
-            $dbw->delete('user_groups',
-                array(
-                    'ug_user'  => $user->getID(),
-                    'ug_group' => $group,
-                ),
-                __METHOD__);
-            // Remember that the user was in this group
-                        $dbw->insert('user_former_groups',
-                                array(
-                                        'ufg_user'  => $user->getID(),
-                                        'ufg_group' => $group,
-                                ),
-                                __METHOD__,
-                                array('IGNORE'));
-            $user->mGroups = array_diff($user->mGroups, array($group));
-        }
-
-        # add new groups found in the remote database:
-        # NOTE: We do not call User::addGroup here, because that would call the hook.
-        #    If this whould be done, this would add the group at the RestAuth server
-        #    when loading groups from the RestAuth server, which doesn't make sense.
-        $add_groups = array_diff($remote_groups, $local_groups);
-        foreach ($add_groups as $group) {
-            if($user->getId()) {
-                $dbw->insert('user_groups',
-                    array(
-                        'ug_user'  => $user->getID(),
-                        'ug_group' => $group,
-                    ),
-                    __METHOD__,
-                    array('IGNORE'));
-            }
-            $user->mGroups[] = $group;
-        }
-
-        # reload cache
-        $user->getGroups();
-        $user->mRights = User::getGroupPermissions($user->getEffectiveGroups(true));
-    }
-
-    /**
      * Called whenever a user logs in. It updates local groups to mach those
      * from the remote database.
      */
@@ -591,8 +448,153 @@ class RestAuthPlugin extends AuthPlugin {
  */
 
     /**
-     * TODO: implement this function, called by User.php
+     * Should MediaWiki store passwords in its local database?
      */
-//    public function allowSetLocalPassword() {
-//    }
+    public function allowSetLocalPassword() {
+        return false;
+    }
+
+    /**
+     * Update local settings from RestAuth.
+     *
+     * This function saves settings to the database.
+     */
+    public function refreshUserSettingsFromRestAuth(&$user) {
+        // initialize local user:
+        $user->load();
+        if (wfReadOnly()) { return; }
+        if (0 == $user->mId) { return; }
+        wfDebug("- START: refreshUserSettingsFromRestAuth\n");
+
+        // get remote user:
+        global $wgRestAuthIgnoredOptions, $wgRestAuthGlobalOptions;
+        $ra_user = new RestAuthUser($this->conn, $user->getName());
+
+        // used as a complete list of all options:
+        $default_options = User::getDefaultOptions();
+
+        // get all options from the RestAuth service
+        try {
+            $rest_options = $ra_user->getProperties();
+        } catch (RestAuthException $e) {
+            // if this is the case, we just don't load any options.
+            wfDebug("Unable to get options from auth-service: " . $e . "\n");
+            return;
+        }
+
+        // take care of setting all settings and options to the current
+        // user object.
+        foreach($rest_options as $key => $value) {
+            if (strpos($key, 'mediawiki ') === 0) {
+                // if this is a mediawiki specific setting, remove the
+                // prefix:
+                $prop_name = substr($key, 10);
+            } else {
+                // This setting is not specific to MediaWiki. Only use
+                // the setting if we find it in $wgRestAuthGlobalOptions.
+                if (is_null($wgRestAuthGlobalOptions) ||
+                    !(array_key_exists($key, $wgRestAuthGlobalOptions)
+                      && $wgRestAuthGlobalOptions[$key]))
+                {
+                    continue;
+                }
+
+                // This is a global option where we also have an option
+                // specific to MediaWiki - which we use instead
+                if (array_key_exists('mediawiki ' . $key, $rest_options)) {
+                    continue;
+                }
+                $prop_name = $key;
+            }
+
+            if (!is_null($wgRestAuthIgnoredOptions) && in_array($prop_name, $wgRestAuthIgnoredOptions)) {
+                continue; // filter ignored options
+            }
+
+            if ($prop_name == 'real name') {
+                $user->mRealName = $value;
+            } elseif ($prop_name == 'email') {
+                $user->mEmail = $value;
+            } elseif ($prop_name == 'email confirmed') {
+                $user->mEmailConfirmed = $value;
+            } elseif (array_key_exists($prop_name, $default_options)) {
+                // finally use the property from RestAuth, if the
+                // property exists as a default option:
+                $user->mOptions[$prop_name] = $value;
+                $user->mOptionsOverrides[$prop_name] = $value;
+            }
+        }
+
+        // update RestAuthRefreshTimestamp:
+        $user->mOptions['RestAuthRefreshTimestamp'] = time();
+
+        // begin saving the user to the local database:
+        $user->mTouched = self::newTouchedTimestamp();
+
+        // save user to the database:
+        $user->saveSettings();
+        wfDebug("- END: refreshUserSettingsFromRestAuth\n");
+    }
+
+    /**
+      * Synchronize the local group database with the remote database.
+      */
+    public function refreshUserGroupsFromRestAuth(&$user) {
+        $user->load();
+        $local_groups = $user->getGroups();
+        $rest_groups = RestAuthGroup::getAll($this->conn, $user->getName());
+        $remote_groups = array();
+        foreach ($rest_groups as $rest_group) {
+            $remote_groups[] = $rest_group->name;
+        }
+
+        # get database slave:
+        $dbw = wfGetDB(DB_MASTER);
+
+        # remove groups no longer found in the remote database:
+        # NOTE: We do not call User::removeGroup here, because that would call the hook.
+        #    If this whould be done, this would remove the group from the RestAuth server
+        #    when loading groups from the RestAuth server, which doesn't make sense.
+        $rem_groups = array_diff($local_groups, $remote_groups);
+        foreach ($rem_groups as $group) {
+            $dbw->delete('user_groups',
+                array(
+                    'ug_user'  => $user->getID(),
+                    'ug_group' => $group,
+                ),
+                __METHOD__);
+            // Remember that the user was in this group
+                        $dbw->insert('user_former_groups',
+                                array(
+                                        'ufg_user'  => $user->getID(),
+                                        'ufg_group' => $group,
+                                ),
+                                __METHOD__,
+                                array('IGNORE'));
+            $user->mGroups = array_diff($user->mGroups, array($group));
+        }
+
+        # add new groups found in the remote database:
+        # NOTE: We do not call User::addGroup here, because that would call the hook.
+        #    If this whould be done, this would add the group at the RestAuth server
+        #    when loading groups from the RestAuth server, which doesn't make sense.
+        $add_groups = array_diff($remote_groups, $local_groups);
+        foreach ($add_groups as $group) {
+            if($user->getId()) {
+                $dbw->insert('user_groups',
+                    array(
+                        'ug_user'  => $user->getID(),
+                        'ug_group' => $group,
+                    ),
+                    __METHOD__,
+                    array('IGNORE'));
+            }
+            $user->mGroups[] = $group;
+        }
+
+        # reload cache
+        $user->getGroups();
+        $user->mRights = User::getGroupPermissions($user->getEffectiveGroups(true));
+    }
+
 }
