@@ -59,7 +59,7 @@ function fnRestAuthUpdateFromRestAuth($title, $article, $output, $user, $request
 
     if ($update) {
         global $wgAuth;
-        $wgAuth->updateUser($user);
+        $wgAuth->refreshUserFromRestAuth($user);
         $user->invalidateCache();
     }
 
@@ -228,12 +228,12 @@ class RestAuthPlugin extends AuthPlugin {
      *
      * This function saves settings to the database.
      */
-    public function updateSettings(&$user) {
+    public function refreshUserSettingsFromRestAuth(&$user) {
         // initialize local user:
         $user->load();
         if (wfReadOnly()) { return; }
         if (0 == $user->mId) { return; }
-        wfDebug("- START: updateSettings\n");
+        wfDebug("- START: refreshUserSettingsFromRestAuth\n");
 
         // get remote user:
         global $wgRestAuthIgnoredOptions, $wgRestAuthGlobalOptions;
@@ -302,13 +302,13 @@ class RestAuthPlugin extends AuthPlugin {
 
         // save user to the database:
         $user->saveSettings();
-        wfDebug("- END: updateSettings\n");
+        wfDebug("- END: refreshUserSettingsFromRestAuth\n");
     }
 
     /**
       * Synchronize the local group database with the remote database.
       */
-    public function updateGroups(&$user) {
+    public function refreshUserGroupsFromRestAuth(&$user) {
         $user->load();
         $local_groups = $user->getGroups();
         $rest_groups = RestAuthGroup::getAll($this->conn, $user->getName());
@@ -370,15 +370,15 @@ class RestAuthPlugin extends AuthPlugin {
      * Called whenever a user logs in. It updates local groups to mach those
      * from the remote database.
      */
-    public function updateUser (&$user) {
-        wfDebug("- START updateUser()\n");
+    public function refreshUserFromRestAuth (&$user) {
+        wfDebug("- START refreshUserFromRestAuth()\n");
         # When a user logs in, optionally fill in preferences and such.
-        $this->updateGroups($user);
-        $this->updateSettings($user);
+        $this->refreshUserGroupsFromRestAuth($user);
+        $this->refreshUserSettingsFromRestAuth($user);
 
         # reload everything
         $user->invalidateCache();
-        wfDebug("- END updateUser()\n");
+        wfDebug("- END refreshUserFromRestAuth()\n");
     }
 
     public function autoCreate () {
@@ -561,11 +561,11 @@ class RestAuthPlugin extends AuthPlugin {
         return true;
     }
 
-    function initUser (&$user, $autocreate=false) {
+    public function initUser (&$user, $autocreate=false) {
         # When creating a user account, optionally fill in preferences
         # and such.
-        $this->updateGroups($user);
-        $this->updateSettings($user);
+        $this->refreshUserGroupsFromRestAuth($user);
+        $this->refreshUserSettingsFromRestAuth($user);
     }
 
 /*    function getCanonicalName ($username) {
