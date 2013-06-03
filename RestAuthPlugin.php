@@ -11,7 +11,7 @@ $wgHooks['UserRemoveGroup'][] = 'fnRestAuthUserRemoveGroup';
 $wgHooks['UserSaveOptions'][] = 'fnRestAuthSaveOptions';
 
 # auto-update local database
-$wgHooks['BeforeInitialize'][] = 'fnRestAuthUpdatePreferences';
+$wgHooks['BeforeInitialize'][] = 'fnRestAuthUpdateFromRestAuth';
 
 // default settings;
 if (! isset($wgRestAuthHost)) $wgRestAuthHost = 'localhost';
@@ -35,7 +35,7 @@ $wgRestAuthRefresh = 300;
  *
  * Please see the documentation for the BeforeInitialize Hook if needed.
  */
-function fnRestAuthUpdatePreferences($title, $article, $output, $user, $request, $this) {
+function fnRestAuthUpdateFromRestAuth($title, $article, $output, $user, $request, $this) {
     if (!$user->isLoggedIn()) {
         return true;
     }
@@ -46,7 +46,7 @@ function fnRestAuthUpdatePreferences($title, $article, $output, $user, $request,
             && SpecialPage::resolveAlias($title->getText()) === "Preferences"
             && $request->getMethod() === 'GET')
     {
-        $update = true; // SpecialPreferences updates in any case
+        $update = true; // update when viewing Special:Preferences
     } else {
         global $wgRestAuthRefresh;
 
