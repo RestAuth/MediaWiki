@@ -218,66 +218,15 @@ class RestAuthPlugin extends AuthPlugin {
         return true;
     }
 
-    private static function newTouchedTimestamp() {
-                global $wgClockSkewFudge;
-                return wfTimestamp(TS_MW, time() + $wgClockSkewFudge);
-        }
-
-    /**
-     * This saves $user->mOptions to the database.
-     */
-    public function updateOptions(&$user) {
-        wfDebug("- START: updateOptions\n");
-        global $wgAllowPrefChange;
-
-        $extuser = ExternalUser::newFromUser($user);
-
-        // hack to load options:
-        //$user->loadOptions();
-        $user->getOption('foo', 'bar');
-
-        $dbw = wfGetDB(DB_MASTER);
-
-        $insert_rows = array();
-
-        $saveOptions = $user->mOptions;
-
-        // hook call removed here
-
-        foreach($saveOptions as $key => $value) {
-            # Don't bother storing default values
-            if ((is_null(User::getDefaultOption($key)) &&
-                        !($value === false || is_null($value))) ||
-                        $value != User::getDefaultOption($key)) {
-                $insert_rows[] = array(
-                    'up_user' => $user->getId(),
-                    'up_property' => $key,
-                    'up_value' => $value,
-                );
-            }
-            if ($extuser && isset($wgAllowPrefChange[$key])) {
-                switch ($wgAllowPrefChange[$key]) {
-                    case 'local':
-                    case 'message':
-                        break;
-                    case 'semiglobal':
-                    case 'global':
-                        $extuser->setPref($key, $value);
-                }
-            }
-        }
-
-        $dbw->begin();
-        $dbw->delete('user_properties', array('up_user' => $user->getId()), __METHOD__);
-        $dbw->insert('user_properties', $insert_rows, __METHOD__);
-        $dbw->commit();
-        wfDebug("- END: updateOptions\n");
+    private function newTouchedTimestamp() {
+        global $wgClockSkewFudge;
+        return wfTimestamp(TS_MW, time() + $wgClockSkewFudge);
     }
 
     /**
      * Update local settings from RestAuth.
      *
-     * This function saves settings to the database and also calls updateOptions.
+     * This function saves settings to the database.
      */
     public function updateSettings(&$user) {
         // initialize local user:
@@ -299,7 +248,7 @@ class RestAuthPlugin extends AuthPlugin {
         } catch (RestAuthException $e) {
             // if this is the case, we just don't load any options.
             wfDebug("Unable to get options from auth-service: " . $e . "\n");
-            return true;
+            return;
         }
 
         // take care of setting all settings and options to the current
@@ -351,30 +300,8 @@ class RestAuthPlugin extends AuthPlugin {
         // begin saving the user to the local database:
         $user->mTouched = self::newTouchedTimestamp();
 
-        $dbw = wfGetDB(DB_MASTER);
-        $dbw->update('user',
-            array( /* SET */
-                'user_name' => $user->mName,
-                'user_password' => $user->mPassword,
-                'user_newpassword' => $user->mNewpassword,
-                'user_newpass_time' => $dbw->timestampOrNull($user->mNewpassTime),
-                'user_real_name' => $user->mRealName,
-                'user_email' => $user->mEmail,
-                'user_email_authenticated' => $dbw->timestampOrNull($user->mEmailAuthenticated),
-                'user_touched' => $dbw->timestamp($user->mTouched),
-                'user_token' => $user->mToken,
-                'user_email_token' => $user->mEmailToken,
-                'user_email_token_expires' => $dbw->timestampOrNull($user->mEmailTokenExpires),
-            ), array( /* WHERE */
-                'user_id' => $user->mId
-            ), __METHOD__
-        );
-
-        $this->updateOptions($user);
-
-        $user->invalidateCache();
-        $user->getUserPage()->invalidateCache();
-
+        // save user to the database:
+        $user->saveSettings();
         wfDebug("- END: updateSettings\n");
     }
 
