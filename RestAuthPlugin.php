@@ -7,15 +7,13 @@ require_once('RestAuth/restauth.php');
 $wgHooks['UserAddGroup'][] = 'fnRestAuthUserAddGroup';
 $wgHooks['UserRemoveGroup'][] = 'fnRestAuthUserRemoveGroup';
 
-# settings/options
-$wgHooks['UserSaveOptions'][] = 'fnRestAuthSaveOptions';
-
 # auto-update local database
 $wgHooks['BeforeInitialize'][] = 'fnRestAuthUpdateFromRestAuth';
 
 // default settings;
 if (! isset($wgRestAuthHost)) $wgRestAuthHost = 'localhost';
 $wgRestAuthIgnoredOptions = array(
+    "RestAuthRefreshTimestamp",
     "watchlisttoken",
 );
 
@@ -122,54 +120,6 @@ function fnRestAuthGetSettingAction($prop, $ra_props, $ra_prop) {
  * named in the setting $wgRestAuthIgnoredOptions.
  */
 function fnRestAuthSaveOptions($user, $options) {
-    global $wgRestAuthIgnoredOptions;
-    $conn = fnRestAuthGetConnection();
-    $rest_user = new RestAuthUser($conn, $user->getName());
-    $update_options = array();
-    $create_options = array();
-
-    # Get options from RestAuth service:
-    try {
-        $remote_options = $rest_user->getProperties();
-    } catch (RestAuthException $e) {
-        throw new MWRestAuthError($e);
-    }
-
-    foreach($options as $key => $value) {
-        if (in_array($key, $wgRestAuthIgnoredOptions)) {
-            continue; // filter ignored options
-        }
-
-        // get name that this option has remotly
-        $prop = fnRestAuthGetOptionName($key);
-
-        if (array_key_exists($prop, $remote_options)) {
-            if ($remote_options[$prop] != $value) {
-                try {
-                    $rest_user->setProperty($prop, (string)$value);
-                } catch (RestAuthException $e) {
-                    throw new MWRestAuthError($e);
-                }
-            }
-        } else {
-            // The setting does not yet exist in the
-            // RestAuth service. Only save it when the new
-            // setting is different from the local default.
-
-            if ((is_null(User::getDefaultOption($key)) &&
-                    !($value === false || is_null($value))) ||
-                     $value != User::getDefaultOption($key)) {
-                try {
-                    $rest_user->createProperty($prop, (string)$value);
-                } catch (RestAuthPropertyExists $e) {
-                    $rest_user->setProperty($prop, (string)$value);
-                    throw new MWRestAuthError($e);
-                } catch (RestAuthException $e) {
-                    throw new MWRestAuthError($e);
-                }
-            }
-        }
-    }
 
     // return true so we still save to the database. This way we still have
     // somewhat valid settings here in case the RestAuth service is
@@ -539,9 +489,8 @@ class RestAuthPlugin extends AuthPlugin {
      * the external database.
      */
     public function updateExternalDB ($user) {
-        # Update user information in the external authentication
-        # database.
         wfDebug("- START updateExternalDB\n");
+        global $wgRestAuthIgnoredOptions;
 
         $raUser = new RestAuthUser($this->conn, $user->getName());
         $raProperties = $raUser->getProperties();
@@ -602,10 +551,42 @@ class RestAuthPlugin extends AuthPlugin {
             $raDelProperties[] = $raProp;
         }
 
+        // Finally handle options (which are in a seperate option table in
+        // MediaWiki)
+
+        foreach($user->getOptions() as $key => $value) {
+            if (in_array($key, $wgRestAuthIgnoredOptions)) {
+                continue; // filter ignored options
+            }
+
+            // get name that this option has remotly
+            $prop = fnRestAuthGetOptionName($key);
+
+            if (array_key_exists($prop, $raProperties)) {
+                if ($raProperties[$prop] != $value) {
+                    $raSetProperties[$prop] = $value;
+                }
+            } else {
+                // The setting does not yet exist in the
+                // RestAuth service. Only save it when the new
+                // setting is different from the local default.
+
+                if ((is_null(User::getDefaultOption($key)) &&
+                        !($value === false || is_null($value))) ||
+                        $value != User::getDefaultOption($key))
+                {
+                    $raSetProperties[$prop] = $value;
+                }
+            }
+        }
+
         try {
             // finally set all properties in one go:
             if (count($raSetProperties) > 0) {
                 wfDebug("--- Set " . count($raSetProperties) . " properties\n");
+                foreach ($raSetProperties as $key => $value) {
+                    wfDebug("----- $key --> $value\n");
+                }
                 $raUser->setProperties($raSetProperties);
             }
 
