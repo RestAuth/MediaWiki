@@ -226,7 +226,7 @@ class RestAuthPlugin extends AuthPlugin {
     /**
      * This saves $user->mOptions to the database.
      */
-    public static function updateOptions(&$user) {
+    public function updateOptions(&$user) {
         wfDebug("- START: updateOptions\n");
         global $wgAllowPrefChange;
 
@@ -370,7 +370,7 @@ class RestAuthPlugin extends AuthPlugin {
             ), __METHOD__
         );
 
-        RestAuthPlugin::updateOptions($user);
+        $this->updateOptions($user);
 
         $user->invalidateCache();
         $user->getUserPage()->invalidateCache();
@@ -583,24 +583,21 @@ class RestAuthPlugin extends AuthPlugin {
         try {
             // finally set all properties in one go:
             if (count($raSetProperties) > 0) {
-                wfDebug("--- Set " . count($raSetProperties) . " properties\n");
                 foreach ($raSetProperties as $key => $value) {
-                    wfDebug("----- $key --> $value\n");
+                    wfDebug("----- Set $key --> $value\n");
                 }
                 $raUser->setProperties($raSetProperties);
             }
 
-            if (count($raDelProperties) > 0) {
-                wfDebug("--- Del " . count($raDelProperties) . " properties\n");
-                foreach($raDelProperties as $raProp) {
-                    $raUser->removeProperty($raProp);
-                }
+            foreach($raDelProperties as $raProp) {
+                wfDebug("----- Del '$raProp'\n");
+                $raUser->removeProperty($raProp);
             }
 
             wfDebug("- END: fnRestAuthSaveSettings\n");
             return true;
         } catch (RestAuthException $e) {
-            wfDebug("- EXCEPTION: fnRestAuthSaveSettings\n");
+            wfDebug("- EXCEPTION: fnRestAuthSaveSettings - $e\n");
             throw new MWRestAuthError($e);
         }
     }
