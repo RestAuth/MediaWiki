@@ -8,7 +8,6 @@ $wgHooks['UserAddGroup'][] = 'fnRestAuthUserAddGroup';
 $wgHooks['UserRemoveGroup'][] = 'fnRestAuthUserRemoveGroup';
 
 # settings/options
-$wgHooks['UserSaveSettings'][] = 'fnRestAuthSaveSettings';
 $wgHooks['UserSaveOptions'][] = 'fnRestAuthSaveOptions';
 
 # auto-update local database
@@ -113,82 +112,6 @@ function fnRestAuthGetSettingAction($prop, $ra_props, $ra_prop) {
     wfDebug("---- NO ACTION FOR '$ra_prop'\n");
     // other cases require no action.
     return RESTAUTH_PROP_NO_ACTION;
-}
-
-/**
- * Save settings. Settings are a few special options that - for MediaWiki - are
- * stored directly in the user table. Other options are saved with
- * fnRestAuthsaveOptions.
- */
-function fnRestAuthSaveSettings($user) {
-    wfDebug("- START: fnRestAuthSaveSettings");
-    global $wgRestAuthIgnoredOptions, $wgRestAuthGlobalOptions;
-    $conn = fnRestAuthGetConnection();
-    $ra_user = new RestAuthUser($conn, $user->getName());
-    $set_properties = array();
-
-    $mapping = array(
-        'mRealName' => fnRestAuthGetOptionName('real name'),
-        'email' => fnRestAuthGetOptionName('email'),
-    );
-
-    try {
-        $ra_props = $ra_user->getProperties();
-
-        foreach ($mapping as $prop => $ra_prop) {
-            $action = fnRestAuthGetSettingAction(
-                $user->$prop, $ra_props, $ra_prop);
-            if ($action === RESTAUTH_PROP_UPDATE) {
-                wfDebug("--- SaveSettings: Update $prop '" . $user->$prop . "' to $ra_prop\n");
-                $set_properties[$ra_prop] = $user->$prop;
-            } elseif ($action === RESTAUTH_PROP_DELETE) {
-                wfDebug("--- SaveSettings: Delete $ra_prop\n");
-                $ra_user->removeProperty($ra_prop);
-            }
-        }
-
-        // email confirmed is handled seperately, because locally its a boolean
-        // value and we need to set '0' or '1' remotely (RestAuth properties
-        // are always strings).
-
-        // 'email confirmed' is prefixed if 'email' is prefixed.
-        if (strpos($mapping['email'], 'mediawiki ') === 0) {
-            $prop_confirmed = 'mediawiki email confirmed';
-        } else {
-            $prop_confirmed = 'email confirmed';
-        }
-
-        // boolean condition copied from includes/User.php:2825 (version 1.19.2)
-        $dbw = wfGetDB(DB_MASTER);
-        if ($dbw->timestampOrNull($user->mEmailAuthenticated)) {
-            $confirmed = '1';
-        } else {
-            $confirmed = '0';
-        }
-
-        // finally, decide if we should update/delete:
-        $action = fnRestAuthGetSettingAction(
-            $confirmed, $ra_props, $prop_confirmed);
-        if ($action === RESTAUTH_PROP_UPDATE) {
-            wfDebug("--- SaveSettings: Set $prop_confirmed to $confirmed\n");
-            $set_properties[$prop_confirmed] = $confirmed;
-        } elseif ($action === RESTAUTH_PROP_DELETE) {
-            wfdebug("--- SaveSettings: Delete $prop_confirmed\n");
-            $ra_user->removeProperty($prop_confirmed);
-        }
-
-        // finally set all properties in one go:
-        if (count($set_properties) > 0) {
-            wfDebug("--- Set " . count($set_properties) . " properties\n");
-            $ra_user->setProperties($set_properties);
-        }
-
-        wfDebug("- END: fnRestAuthSaveSettings");
-        return true;
-    } catch (RestAuthException $e) {
-        wfDebug("- EXCEPTION: fnRestAuthSaveSettings");
-        throw new MWRestAuthError($e);
-    }
 }
 
 /**
@@ -423,7 +346,7 @@ class RestAuthPlugin extends AuthPlugin {
             $rest_options = $ra_user->getProperties();
         } catch (RestAuthException $e) {
             // if this is the case, we just don't load any options.
-            wfDebug("Unable to get options from auth-service: " . $e);
+            wfDebug("Unable to get options from auth-service: " . $e . "\n");
             return true;
         }
 
@@ -569,12 +492,14 @@ class RestAuthPlugin extends AuthPlugin {
      * from the remote database.
      */
     public function updateUser (&$user) {
+        wfDebug("- START updateUser()\n");
         # When a user logs in, optionally fill in preferences and such.
         $this->updateGroups($user);
         $this->updateSettings($user);
 
         # reload everything
         $user->invalidateCache();
+        wfDebug("- END updateUser()\n");
     }
 
     public function autoCreate () {
@@ -603,10 +528,98 @@ class RestAuthPlugin extends AuthPlugin {
         }
     }
 
-    function updateExternalDB ($user) {
+    /**
+     * Update the external user database.
+     *
+     * This is called when the user hits 'submit' on Special:Preferences. This
+     * function is better then implementing Hooks provided by User::save,
+     * because then there is no way to save the local user WITHOUT updating
+     * the external database.
+     */
+    public function updateExternalDB ($user) {
         # Update user information in the external authentication
         # database.
-        print('updateExternalDB');
+        wfDebug("- START updateExternalDB\n");
+
+        $raUser = new RestAuthUser($this->conn, $user->getName());
+        $raProperties = $raUser->getProperties();
+
+        // Properties are collected here and set in one single RestAuth call:
+        $raSetProperties = array();
+        $raDelProperties = array();
+
+        // In MediaWiki, settings (as opposed to "options") are stored directly
+        // in the user table and are properties of a User instance (e.g.
+        // $user->email). Options are handled below.
+        $settingsMapping = array(
+            'mRealName' => fnRestAuthGetOptionName('real name'),
+            'email' => fnRestAuthGetOptionName('email'),
+            // email_confirmed is handled seperately - see below
+        );
+
+        foreach ($settingsMapping as $prop => $raProp) {
+            $action = fnRestAuthGetSettingAction(
+                $user->$prop, $raProperties, $raProp);
+
+            if ($action === RESTAUTH_PROP_UPDATE) {
+                wfDebug("--- SaveSettings: Update $prop '" . $user->$prop . "' to $raProp\n");
+                $raSetProperties[$raProp] = $user->$prop;
+            } elseif ($action === RESTAUTH_PROP_DELETE) {
+                wfDebug("--- SaveSettings: Delete $raProp\n");
+                $raDelProperties[] = $raProp;
+            }
+        }
+
+        // email confirmed is handled seperately, because locally its a boolean
+        // value and we need to set '0' or '1' remotely (RestAuth properties
+        // are always strings).
+
+        // 'email confirmed' is prefixed if 'email' is prefixed.
+        if (strpos($settingsMapping['email'], 'mediawiki ') === 0) {
+            $prop_confirmed = 'mediawiki email confirmed';
+        } else {
+            $prop_confirmed = 'email confirmed';
+        }
+
+        // boolean condition copied from includes/User.php:2825 (version 1.19.2)
+        $dbw = wfGetDB(DB_MASTER);
+        if ($dbw->timestampOrNull($user->mEmailAuthenticated)) {
+            $confirmed = '1';
+        } else {
+            $confirmed = '0';
+        }
+
+        // finally, decide if we should update/delete:
+        $action = fnRestAuthGetSettingAction(
+            $confirmed, $raProperties, $prop_confirmed);
+        if ($action === RESTAUTH_PROP_UPDATE) {
+            wfDebug("--- SaveSettings: Set $prop_confirmed to $confirmed\n");
+            $raSetProperties[$prop_confirmed] = $confirmed;
+        } elseif ($action === RESTAUTH_PROP_DELETE) {
+            wfdebug("--- SaveSettings: Delete $prop_confirmed\n");
+            $raDelProperties[] = $raProp;
+        }
+
+        try {
+            // finally set all properties in one go:
+            if (count($raSetProperties) > 0) {
+                wfDebug("--- Set " . count($raSetProperties) . " properties\n");
+                $raUser->setProperties($raSetProperties);
+            }
+
+            if (count($raDelProperties) > 0) {
+                wfDebug("--- Del " . count($raDelProperties) . " properties\n");
+                foreach($raDelProperties as $raProp) {
+                    $raUser->removeProperty($raProp);
+                }
+            }
+
+            wfDebug("- END: fnRestAuthSaveSettings\n");
+            return true;
+        } catch (RestAuthException $e) {
+            wfDebug("- EXCEPTION: fnRestAuthSaveSettings\n");
+            throw new MWRestAuthError($e);
+        }
     }
 
     public function canCreateAccounts () {
@@ -656,5 +669,11 @@ class RestAuthPlugin extends AuthPlugin {
 /*    function getUserInstance (User &$user) {
         # Get an instance of a User object.
     }
-*/
+ */
+
+    /**
+     * TODO: implement this function, called by User.php
+     */
+//    public function allowSetLocalPassword() {
+//    }
 }
