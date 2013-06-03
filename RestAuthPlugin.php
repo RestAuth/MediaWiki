@@ -536,6 +536,12 @@ class RestAuthPlugin extends AuthPlugin {
         return true;
     }
 
+    /**
+     * Add a user to the external authentication database.
+     *
+     * Called when creating a new user - before it exists in the local
+     * database.
+     */
     public function addUser ($user, $password, $email= '', $realname= '') {
         try {
             RestAuthUser::create($this->conn, $user->getName(), $password);
@@ -544,6 +550,19 @@ class RestAuthPlugin extends AuthPlugin {
         } catch (RestAuthException $e) {
             throw new MWRestAuthError($e);
         }
+    }
+
+    /**
+     * Update a user from RestAuth. This is called when a new user was created
+     * (we don't need it then) or when a user logs in and doesn't yet exist
+     * locally.
+     */
+    public function initUser (&$user, $autocreate=false) {
+        wfDebug('- initUser()');
+        # When creating a user account, optionally fill in preferences
+        # and such.
+        $this->refreshUserGroupsFromRestAuth($user);
+        $this->refreshUserSettingsFromRestAuth($user);
     }
 
     public function strict () {
@@ -559,13 +578,6 @@ class RestAuthPlugin extends AuthPlugin {
         # Check if a user should authenticate locally if the global
         # authentication fails.
         return true;
-    }
-
-    public function initUser (&$user, $autocreate=false) {
-        # When creating a user account, optionally fill in preferences
-        # and such.
-        $this->refreshUserGroupsFromRestAuth($user);
-        $this->refreshUserSettingsFromRestAuth($user);
     }
 
 /*    function getCanonicalName ($username) {
