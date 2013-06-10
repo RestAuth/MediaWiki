@@ -19,6 +19,7 @@ $wgRestAuthIgnoredOptions = array(
 
 // default, if not set at all
 $wgRestAuthGlobalOptions = array(
+    'RestAuthRefreshTimestamp' => true,
     'language' => true,
     'real name' => true,
     'email' => true,
