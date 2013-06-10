@@ -19,7 +19,6 @@ $wgRestAuthIgnoredOptions = array(
 
 // default, if not set at all
 $wgRestAuthGlobalOptions = array(
-    'RestAuthRefreshTimestamp' => true,
     'language' => true,
     'real name' => true,
     'email' => true,
@@ -67,66 +66,6 @@ function fnRestAuthUpdateFromRestAuth($title, $article, $output, $user, $request
     return true;
 }
 
-/**
- * Helper function to see if an option is a global option or not.
- */
-function fnRestAuthGetOptionName($option) {
-    global $wgRestAuthGlobalOptions;
-    if (array_key_exists($option, $wgRestAuthGlobalOptions) &&
-            $wgRestAuthGlobalOptions[$option]) {
-        return $option;
-    } else {
-        return 'mediawiki ' . $option;
-    }
-}
-
-define("RESTAUTH_PROP_NO_ACTION", 0);
-define("RESTAUTH_PROP_UPDATE", 1);
-define("RESTAUTH_PROP_DELETE", 2);
-
-/**
- * Decide what do do with a setting. Should it be updated or deleted?
- *
- * @param $user: The user to update
- * @param $prop: The property name of interest (e.g. 'email')
- * @param $ra_props: Properties fetched from RestAuth
- * @param $ra_prop: Remote name of the property
- */
-function fnRestAuthGetSettingAction($prop, $ra_props, $ra_prop) {
-    wfDebug("---- Get action for $prop -> $ra_prop\n");
-    $ra_exists = array_key_exists($ra_prop, $ra_props);
-    wfDebug("---- We exist: $ra_exists\n");
-
-    if ($prop) {
-        wfDebug("---- \$prop == true ('$prop').\n");
-        if (!$ra_exists || $prop !== $ra_props[$ra_prop]) {
-            wfdebug("---- UPDATE '$ra_prop' (" . $ra_props[$ra_prop] . " --> '$prop')\n");
-            // don't exist in RestAuth or are different in RestAuth.
-            return RESTAUTH_PROP_UPDATE;
-        }
-    } elseif ($ra_exists) {
-        wfDebug("---- DELETE '$ra_prop'");
-        // not locally present, but still available remotely
-        return RESTAUTH_PROP_DELETE;
-    }
-
-    wfDebug("---- NO ACTION FOR '$ra_prop'\n");
-    // other cases require no action.
-    return RESTAUTH_PROP_NO_ACTION;
-}
-
-/**
- * Save options to the RestAuth database. If a value is set back to its default
- * value, it is deleted from the RestAuth database. It ignores any settings
- * named in the setting $wgRestAuthIgnoredOptions.
- */
-function fnRestAuthSaveOptions($user, $options) {
-
-    // return true so we still save to the database. This way we still have
-    // somewhat valid settings here in case the RestAuth service is
-    // temporarily unavailable.
-    return true;
-}
 
 /**
  * Called when a bureaucrat adds the user to a group via Special:UserRights.
@@ -288,22 +227,14 @@ class RestAuthPlugin extends AuthPlugin {
         // in the user table and are properties of a User instance (e.g.
         // $user->email). Options are handled below.
         $settingsMapping = array(
-            'mRealName' => fnRestAuthGetOptionName('real name'),
-            'email' => fnRestAuthGetOptionName('email'),
+            'mRealName' => $this->raOptionName('real name'),
+            'email' => $this->raOptionName('email'),
             // email_confirmed is handled seperately - see below
         );
 
         foreach ($settingsMapping as $prop => $raProp) {
-            $action = fnRestAuthGetSettingAction(
-                $user->$prop, $raProperties, $raProp);
-
-            if ($action === RESTAUTH_PROP_UPDATE) {
-                wfDebug("--- SaveSettings: Update $prop '" . $user->$prop . "' to $raProp\n");
-                $raSetProperties[$raProp] = $user->$prop;
-            } elseif ($action === RESTAUTH_PROP_DELETE) {
-                wfDebug("--- SaveSettings: Delete $raProp\n");
-                $raDelProperties[] = $raProp;
-            }
+            $this->_handleSaveSetting($raProperties, $raProp, $value,
+                $raSetProperties);
         }
 
         // email confirmed is handled seperately, because locally its a boolean
@@ -312,29 +243,20 @@ class RestAuthPlugin extends AuthPlugin {
 
         // 'email confirmed' is prefixed if 'email' is prefixed.
         if (strpos($settingsMapping['email'], 'mediawiki ') === 0) {
-            $prop_confirmed = 'mediawiki email confirmed';
+            $raProp = 'mediawiki email confirmed';
         } else {
-            $prop_confirmed = 'email confirmed';
+            $raProp = 'email confirmed';
         }
 
         // boolean condition copied from includes/User.php:2825 (version 1.19.2)
         $dbw = wfGetDB(DB_MASTER);
         if ($dbw->timestampOrNull($user->mEmailAuthenticated)) {
-            $confirmed = '1';
+            $value = '1';
         } else {
-            $confirmed = '0';
+            $value = '0';
         }
-
-        // finally, decide if we should update/delete:
-        $action = fnRestAuthGetSettingAction(
-            $confirmed, $raProperties, $prop_confirmed);
-        if ($action === RESTAUTH_PROP_UPDATE) {
-            wfDebug("--- SaveSettings: Set $prop_confirmed to $confirmed\n");
-            $raSetProperties[$prop_confirmed] = $confirmed;
-        } elseif ($action === RESTAUTH_PROP_DELETE) {
-            wfdebug("--- SaveSettings: Delete $prop_confirmed\n");
-            $raDelProperties[] = $raProp;
-        }
+        $this->_handleSaveSetting($raProperties, $raProp, $value,
+            $raSetProperties);
 
         // Finally handle options (which are in a seperate option table in
         // MediaWiki)
@@ -343,33 +265,18 @@ class RestAuthPlugin extends AuthPlugin {
             if (in_array($key, $wgRestAuthIgnoredOptions)) {
                 continue; // filter ignored options
             }
+            $raProp = $this->raOptionName($key);
 
-            // get name that this option has remotly
-            $prop = fnRestAuthGetOptionName($key);
+            $this->_handleSaveSetting($raProperties, $raProp, $key, $value,
+                $raSetProperties, $raDelProperties);
 
-            if (array_key_exists($prop, $raProperties)) {
-                if ($raProperties[$prop] != $value) {
-                    $raSetProperties[$prop] = $value;
-                }
-            } else {
-                // The setting does not yet exist in the
-                // RestAuth service. Only save it when the new
-                // setting is different from the local default.
-
-                if ((is_null(User::getDefaultOption($key)) &&
-                        !($value === false || is_null($value))) ||
-                        $value != User::getDefaultOption($key))
-                {
-                    $raSetProperties[$prop] = $value;
-                }
-            }
         }
 
         try {
             // finally set all properties in one go:
             if (count($raSetProperties) > 0) {
                 foreach ($raSetProperties as $key => $value) {
-                    wfDebug("----- Set $key --> $value\n");
+                    wfDebug("----- Set $key --> $value (" . gettype($value) . ")\n");
                 }
                 $raUser->setProperties($raSetProperties);
             }
@@ -384,6 +291,45 @@ class RestAuthPlugin extends AuthPlugin {
         } catch (RestAuthException $e) {
             wfDebug("- EXCEPTION: fnRestAuthSaveSettings - $e\n");
             throw new MWRestAuthError($e);
+        }
+    }
+
+    private function _handleSaveSetting($raProperties, $raProp, $value,
+        &$raSetProperties)
+    {
+        if (array_key_exists($raProp, $raProperties)) {
+            // setting already in RestAuth
+            if ($raProperties[$raProp] != $value) {
+                $raSetProperties[$raProp] = $value;
+            }
+        } else {
+            // setting not (yet) in RestAuth
+            $raSetProperties[$raProp] = $value;
+        }
+    }
+
+    private function _handleSaveOption($raProperties, $raProp, $key, $value,
+            &$raSetProperties, &$raDelProperties)
+    {
+        $default = User::getDefaultOption($key);
+
+        if (array_key_exists($raProp, $raProperties)) {
+            // setting already in RestAuth
+
+            if ($default === $raProperites[$raProp]) {
+                // Set back to default --> remove from RestAuth
+                $raDelProperties[] = $raProp;
+            } elseif ($raProperties[$raProp] != $value) {
+                // RestAuth value different from local --> save to RestAuth
+                $raSetProperties[$raProp] = $value;
+            }
+        } else {
+            // setting not (yet) in RestAuth
+
+            if ($default != $value) {
+                // new value is not just default --> save to RestAuth
+                $raSetProperties[$raProp] = $value;
+            }
         }
     }
 
@@ -597,5 +543,17 @@ class RestAuthPlugin extends AuthPlugin {
         $user->getGroups();
         $user->mRights = User::getGroupPermissions($user->getEffectiveGroups(true));
     }
+    /**
+     * Helper function to see if an option is a global option or not.
+     */
+    private function raOptionName($option) {
+        global $wgRestAuthGlobalOptions;
 
+        if (array_key_exists($option, $wgRestAuthGlobalOptions) &&
+                $wgRestAuthGlobalOptions[$option]) {
+            return $option;
+        } else {
+            return 'mediawiki ' . $option;
+        }
+    }
 }
