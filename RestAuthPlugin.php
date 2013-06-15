@@ -34,7 +34,9 @@ $wgRestAuthRefresh = 300;
  * Please see the documentation for the BeforeInitialize Hook if needed.
  */
 function fnRestAuthUpdateFromRestAuth($title, $article, $output, $user, $request, $this) {
+    wfDebug("- START: " . __FUNCTION__ . "\n");
     if (!$user->isLoggedIn()) {
+        wfDebug("--- Not logged in.\n");
         return true;
     }
 
@@ -44,6 +46,7 @@ function fnRestAuthUpdateFromRestAuth($title, $article, $output, $user, $request
             && SpecialPage::resolveAlias($title->getText()) === "Preferences"
             && $request->getMethod() === 'GET')
     {
+        wfDebug("--- Updating: GET Special:Preferences.\n");
         $update = true; // update when viewing Special:Preferences
     } else {
         global $wgRestAuthRefresh;
@@ -53,6 +56,7 @@ function fnRestAuthUpdateFromRestAuth($title, $article, $output, $user, $request
         $now = time();
         $timestamp = $user->getIntOption('RestAuthRefreshTimestamp', $now);
         if ($timestamp + $wgRestAuthRefresh < $now) {
+            wfDebug("--- Updating: Regular sync.\n");
             $update = true;
         }
     }
@@ -60,9 +64,9 @@ function fnRestAuthUpdateFromRestAuth($title, $article, $output, $user, $request
     if ($update) {
         global $wgAuth;
         $wgAuth->updateUser($user);
-        $user->invalidateCache();
     }
 
+    wfDebug("-   END: " . __FUNCTION__ . "\n");
     return true;
 }
 
@@ -107,9 +111,14 @@ function fnRestAuthGetConnection() {
 }
 
 class RestAuthPlugin extends AuthPlugin {
-
     public function __construct() {
         $this->conn = fnRestAuthGetConnection();
+
+        $this->settingsMapping = array(
+            'mRealName' => $this->raOptionName('real name'),
+            'email' => $this->raOptionName('email'),
+            // email_confirmed is handled seperately - see below
+        );
     }
 
     /**
@@ -166,16 +175,20 @@ class RestAuthPlugin extends AuthPlugin {
     /**
      * Called whenever a user logs in. It updates local groups to mach those
      * from the remote database.
+     *
+     * Also called by fnRestAuthUpdateFromRestAuth (which registers the
+     * BeforeInitialize-Hook), if the user views Special:Preferences or
+     * $wgRestAuthRefresh seconds have passed since the last synchronization.
      */
     public function updateUser (&$user) {
-        wfDebug("- START updateUser()\n");
+        wfDebug("- START: " . __FUNCTION__ . "($user)\n");
         # When a user logs in, optionally fill in preferences and such.
         $this->refreshUserGroupsFromRestAuth($user);
         $this->refreshUserSettingsFromRestAuth($user);
 
         # reload everything
         $user->invalidateCache();
-        wfDebug("- END updateUser()\n");
+        wfDebug("-   END: " . __FUNCTION__ . "\n");
     }
 
     public function autoCreate () {
@@ -195,11 +208,14 @@ class RestAuthPlugin extends AuthPlugin {
     }
 
     public function setPassword ($user, $password) {
+        wfDebug("- START: " . __FUNCTION__ . "\n");
         try {
             $user = new RestAuthUser($this->conn, $user->getName());
             $user->setPassword($password);
+            wfDebug("-   END: " . __FUNCTION__ . "\n");
             return true;
         } catch (RestAuthException $e) {
+            wfDebug("-   EXP: " . __FUNCTION__ . "\n");
             throw new MWRestAuthError($e);
         }
     }
@@ -213,7 +229,7 @@ class RestAuthPlugin extends AuthPlugin {
      * the external database.
      */
     public function updateExternalDB ($user) {
-        wfDebug("- START updateExternalDB\n");
+        wfDebug("- START: " . __FUNCTION__ . "($user)\n");
         global $wgRestAuthIgnoredOptions;
 
         $raUser = new RestAuthUser($this->conn, $user->getName());
@@ -226,14 +242,50 @@ class RestAuthPlugin extends AuthPlugin {
         // In MediaWiki, settings (as opposed to "options") are stored directly
         // in the user table and are properties of a User instance (e.g.
         // $user->email). Options are handled below.
-        $settingsMapping = array(
-            'mRealName' => $this->raOptionName('real name'),
-            'email' => $this->raOptionName('email'),
-            // email_confirmed is handled seperately - see below
-        );
+        $this->updateSettingsToExternalDB(
+            $raProperties, $raSetProperties, $raDelproperties);
 
-        foreach ($settingsMapping as $prop => $raProp) {
-            $this->_handleSaveSetting($raProperties, $raProp, $value,
+
+        // Finally handle options (which are in a seperate option table in
+        // MediaWiki)
+
+        foreach($user->getOptions() as $key => $value) {
+            if (in_array($key, $wgRestAuthIgnoredOptions)) {
+                continue; // filter ignored options
+            }
+            $this->_handleSaveOption($raProperties, $key, $value,
+                $raSetProperties, $raDelProperties);
+
+        }
+
+        try {
+            // finally set all properties in one go:
+            if (count($raSetProperties) > 0) {
+                foreach ($raSetProperties as $key => $value) {
+                    wfDebug("----- Set '$key --> $value' (" . gettype($value) . ")\n");
+                }
+                $raUser->setProperties($raSetProperties);
+            }
+
+            foreach($raDelProperties as $raProp) {
+                wfDebug("----- Del '$raProp'\n");
+                $raUser->removeProperty($raProp);
+            }
+
+            wfDebug("-   END: fnRestAuthSaveSettings\n");
+            return true;
+        } catch (RestAuthException $e) {
+            wfDebug("- EXCEPTION: fnRestAuthSaveSettings - $e\n");
+            throw new MWRestAuthError($e);
+        }
+    }
+
+    public function updateSettingsToExternalDB ($raProperties,
+        &$raSetProperties, &$raDelProperties)
+    {
+        wfDebug("- START: " . __FUNCTION__ . "\n");
+        foreach ($this->settingsMapping as $prop => $raProp) {
+            $this->_handleSaveSetting($raProperties, $raProp, $user->$prop,
                 $raSetProperties);
         }
 
@@ -242,7 +294,7 @@ class RestAuthPlugin extends AuthPlugin {
         // are always strings).
 
         // 'email confirmed' is prefixed if 'email' is prefixed.
-        if (strpos($settingsMapping['email'], 'mediawiki ') === 0) {
+        if (strpos($this->settingsMapping['email'], 'mediawiki ') === 0) {
             $raProp = 'mediawiki email confirmed';
         } else {
             $raProp = 'email confirmed';
@@ -258,45 +310,13 @@ class RestAuthPlugin extends AuthPlugin {
         $this->_handleSaveSetting($raProperties, $raProp, $value,
             $raSetProperties);
 
-        // Finally handle options (which are in a seperate option table in
-        // MediaWiki)
-
-        foreach($user->getOptions() as $key => $value) {
-            if (in_array($key, $wgRestAuthIgnoredOptions)) {
-                continue; // filter ignored options
-            }
-            $raProp = $this->raOptionName($key);
-
-            $this->_handleSaveSetting($raProperties, $raProp, $key, $value,
-                $raSetProperties, $raDelProperties);
-
-        }
-
-        try {
-            // finally set all properties in one go:
-            if (count($raSetProperties) > 0) {
-                foreach ($raSetProperties as $key => $value) {
-                    wfDebug("----- Set $key --> $value (" . gettype($value) . ")\n");
-                }
-                $raUser->setProperties($raSetProperties);
-            }
-
-            foreach($raDelProperties as $raProp) {
-                wfDebug("----- Del '$raProp'\n");
-                $raUser->removeProperty($raProp);
-            }
-
-            wfDebug("- END: fnRestAuthSaveSettings\n");
-            return true;
-        } catch (RestAuthException $e) {
-            wfDebug("- EXCEPTION: fnRestAuthSaveSettings - $e\n");
-            throw new MWRestAuthError($e);
-        }
+        wfDebug("-   END: " . __FUNCTION__ . "\n");
     }
 
     private function _handleSaveSetting($raProperties, $raProp, $value,
         &$raSetProperties)
     {
+//TODO: Normalize value
         if (array_key_exists($raProp, $raProperties)) {
             // setting already in RestAuth
             if ($raProperties[$raProp] != $value) {
@@ -308,15 +328,48 @@ class RestAuthPlugin extends AuthPlugin {
         }
     }
 
-    private function _handleSaveOption($raProperties, $raProp, $key, $value,
+    private function _handleSaveOption($raProperties, $key, $value,
             &$raSetProperties, &$raDelProperties)
     {
         $default = User::getDefaultOption($key);
+        $raProp = $this->raOptionName($key);
+
+        // normalize default-value:
+        if (is_int($default) || is_double($default)) {
+            $default = (string)$default;
+        } elseif (is_bool($default)) {
+            if ($default === true) {
+                $default = '1';
+            } else {
+                $default = '0';
+            }
+        } elseif (is_null($default)) {
+            // some default values translate differently, depending on what
+            // the form sends:
+            // * with checkboxes $value === true|false, never null
+
+            if (is_bool($value)) {
+                $default = '0';
+            } else {
+                $default = '';
+            }
+        }
+
+        // normalize the new value:
+        if (is_int($value) || is_double($value)) {
+            $value = (string)$value;
+        } elseif (is_bool($value)) {
+            if ($value === true) {
+                $value = '1';
+            } else {
+                $value = '0';
+            }
+        }
 
         if (array_key_exists($raProp, $raProperties)) {
             // setting already in RestAuth
 
-            if ($default === $raProperites[$raProp]) {
+            if ($default === $value) {
                 // Set back to default --> remove from RestAuth
                 $raDelProperties[] = $raProp;
             } elseif ($raProperties[$raProp] != $value) {
@@ -347,8 +400,10 @@ class RestAuthPlugin extends AuthPlugin {
      * database.
      */
     public function addUser ($user, $password, $email= '', $realname= '') {
+        wfDebug("- START: " . __FUNCTION__ . "\n");
         try {
             RestAuthUser::create($this->conn, $user->getName(), $password);
+            wfDebug("-   END: " . __FUNCTION__ . "\n");
             return true;
 // TODO: email, realname?
         } catch (RestAuthException $e) {
@@ -362,11 +417,14 @@ class RestAuthPlugin extends AuthPlugin {
      * locally ($autocreate=true).
      */
     public function initUser (&$user, $autocreate) {
+        wfDebug("- START: " . __FUNCTION__ . "\n");
         if ($autocreate) {
+            wfDebug("--- User is autocreated - syncing.\n");
             // true upon login and user doesn't exist locally
             $this->refreshUserGroupsFromRestAuth($user);
             $this->refreshUserSettingsFromRestAuth($user);
         }
+        wfDebug("-   END: " . __FUNCTION__ . "\n");
     }
 
     public function strict () {
@@ -411,7 +469,7 @@ class RestAuthPlugin extends AuthPlugin {
         $user->load();
         if (wfReadOnly()) { return; }
         if (0 == $user->mId) { return; }
-        wfDebug("- START: refreshUserSettingsFromRestAuth\n");
+        wfDebug("- START: " . __FUNCTION__ . "\n");
 
         // get remote user:
         global $wgRestAuthIgnoredOptions, $wgRestAuthGlobalOptions;
@@ -467,6 +525,8 @@ class RestAuthPlugin extends AuthPlugin {
             } elseif (array_key_exists($prop_name, $default_options)) {
                 // finally use the property from RestAuth, if the
                 // property exists as a default option:
+
+//TODO: Convert values to correct types depending on gettype($default)
                 $user->mOptions[$prop_name] = $value;
                 $user->mOptionsOverrides[$prop_name] = $value;
             }
@@ -480,13 +540,14 @@ class RestAuthPlugin extends AuthPlugin {
 
         // save user to the database:
         $user->saveSettings();
-        wfDebug("- END: refreshUserSettingsFromRestAuth\n");
+        wfDebug("-   END: " . __FUNCTION__ . "\n");
     }
 
     /**
       * Synchronize the local group database with the remote database.
       */
     public function refreshUserGroupsFromRestAuth(&$user) {
+        wfDebug("- START: " . __FUNCTION__ . "\n");
         $user->load();
         $local_groups = $user->getGroups();
         $rest_groups = RestAuthGroup::getAll($this->conn, $user->getName());
@@ -542,6 +603,7 @@ class RestAuthPlugin extends AuthPlugin {
         # reload cache
         $user->getGroups();
         $user->mRights = User::getGroupPermissions($user->getEffectiveGroups(true));
+        wfDebug("-   END: " . __FUNCTION__ . "\n");
     }
     /**
      * Helper function to see if an option is a global option or not.
