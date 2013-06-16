@@ -421,11 +421,26 @@ class RestAuthPlugin extends AuthPlugin {
      */
     public function addUser ($user, $password, $email= '', $realname= '') {
         wfDebug("- START: " . __FUNCTION__ . "\n");
+
+        // create an array of properties, if anything is present
+        $properties = array();
+        if ($email) {
+            $properties['email'] = $email;
+        }
+        if ($realname) {
+            $properties['full name'] = $realname;
+        }
+
         try {
-            RestAuthUser::create($this->conn, $user->getName(), $password);
+            $name = $user->getName();
+            if (empty($properties)) {
+                RestAuthUser::create($this->conn, $name, $password);
+            } else {
+                RestAuthUser::create(
+                    $this->conn, $name, $password, $properties);
+            }
             wfDebug("-   END: " . __FUNCTION__ . "\n");
             return true;
-// TODO: email, realname?
         } catch (RestAuthException $e) {
             throw new MWRestAuthError($e);
         }
