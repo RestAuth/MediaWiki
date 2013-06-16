@@ -234,6 +234,13 @@ class RestAuthPlugin extends AuthPlugin {
     }
 
     /**
+     * See https://bugzilla.wikimedia.org/show_bug.cgi?id=49641
+     */
+    public function updateExternalDBGroups ($user, $addgroups, $delgroups) {
+        return true;
+    }
+
+    /**
      * Update the external user database.
      *
      * This is called when the user hits 'submit' on Special:Preferences. This
