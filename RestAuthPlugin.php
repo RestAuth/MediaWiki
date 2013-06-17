@@ -44,28 +44,28 @@ $wgHooks['BeforeInitialize'][] = 'fnRestAuthUpdateFromRestAuth';
 if (! isset($wgRestAuthHost)) $wgRestAuthHost = 'localhost';
 
 /**
- * List of ignored options.
+ * List of ignored =>preferences.
  *
- * This may either be a property of the User-class (e.g. mRealName) or
- * an option in the user_options table.
+ * This may either be an =>option or a =>setting, exactly as defined in
+ * *MediaWiki*.
  */
-$wgRestAuthIgnoredOptions = array(
+$wgRestAuthIgnoredPreferences = array(
     "RestAuthRefreshTimestamp",
     "watchlisttoken",
 );
 
 /**
- * wgRestAuthGlobalOptions configures what options are global options.
- * Non-global options will be saved to RestAuth with the prefix 'mediawiki '.
+ * wgRestAuthGlobalProperties defines what =>properties are global.
+ * Non-global properties will be saved to RestAuth with the prefix 'mediawiki '.
  *
  * NOTE: The keys defined here are property names *in RestAuth* and not of
  * MediaWiki options. The key difference is that 'full name' and
  * 'email confirmed' are standard RestAuth options and are mapped accordingly.
  *
- * If any options are added here, the name in RestAuth and MediaWiki should be
+ * If any =>options are added here, the name in RestAuth and MediaWiki should be
  * identical, otherwise the code has to be modified.
  */
-$wgRestAuthGlobalOptions = array(
+$wgRestAuthGlobalProperties = array(
     'language' => true,
     'full name' => true,
     'email' => true,
@@ -292,7 +292,7 @@ class RestAuthPlugin extends AuthPlugin {
      */
     public function updateExternalDB ($user) {
         wfDebug("- START: " . __FUNCTION__ . "($user)\n");
-        global $wgRestAuthIgnoredOptions;
+        global $wgRestAuthIgnoredPreferences;
 
         $raUser = new RestAuthUser($this->conn, $user->getName());
         $raProperties = $raUser->getProperties();
@@ -312,7 +312,7 @@ class RestAuthPlugin extends AuthPlugin {
         // MediaWiki)
 
         foreach($user->getOptions() as $key => $value) {
-            if (in_array($key, $wgRestAuthIgnoredOptions)) {
+            if (in_array($key, $wgRestAuthIgnoredPreferences)) {
                 continue; // filter ignored options
             }
             $this->_handleSaveOption($raProperties, $key, $value,
@@ -347,7 +347,7 @@ class RestAuthPlugin extends AuthPlugin {
     {
         wfDebug("- START: " . __FUNCTION__ . "\n");
         foreach ($this->settingsMapping as $prop => $raProp) {
-            if (in_array($key, $wgRestAuthIgnoredOptions)) {
+            if (in_array($key, $wgRestAuthIgnoredPreferences)) {
                 continue; // filter ignored options
             }
 
@@ -553,7 +553,7 @@ class RestAuthPlugin extends AuthPlugin {
         wfDebug("- START: " . __FUNCTION__ . "\n");
 
         // get remote user:
-        global $wgRestAuthIgnoredOptions, $wgRestAuthGlobalOptions;
+        global $wgRestAuthIgnoredPreferences, $wgRestAuthGlobalProperties;
         $ra_user = new RestAuthUser($this->conn, $user->getName());
 
         // used as a complete list of all options:
@@ -577,10 +577,10 @@ class RestAuthPlugin extends AuthPlugin {
                 $prop_name = substr($key, 10);
             } else {
                 // This setting is not specific to MediaWiki. Only use
-                // the setting if we find it in $wgRestAuthGlobalOptions.
-                if (is_null($wgRestAuthGlobalOptions) ||
-                    !(array_key_exists($key, $wgRestAuthGlobalOptions)
-                      && $wgRestAuthGlobalOptions[$key]))
+                // the setting if we find it in $wgRestAuthGlobalProperties.
+                if (is_null($wgRestAuthGlobalProperties) ||
+                    !(array_key_exists($key, $wgRestAuthGlobalProperties)
+                      && $wgRestAuthGlobalProperties[$key]))
                 {
                     continue;
                 }
@@ -593,7 +593,7 @@ class RestAuthPlugin extends AuthPlugin {
                 $prop_name = $key;
             }
 
-            if (!is_null($wgRestAuthIgnoredOptions) && in_array($prop_name, $wgRestAuthIgnoredOptions)) {
+            if (!is_null($wgRestAuthIgnoredPreferences) && in_array($prop_name, $wgRestAuthIgnoredPreferences)) {
                 continue; // filter ignored options
             }
 
@@ -691,10 +691,10 @@ class RestAuthPlugin extends AuthPlugin {
      * Helper function to see if an option is a global option or not.
      */
     private function raOptionName($option) {
-        global $wgRestAuthGlobalOptions;
+        global $wgRestAuthGlobalProperties;
 
-        if (array_key_exists($option, $wgRestAuthGlobalOptions) &&
-                $wgRestAuthGlobalOptions[$option]) {
+        if (array_key_exists($option, $wgRestAuthGlobalProperties) &&
+                $wgRestAuthGlobalProperties[$option]) {
             return $option;
         } else {
             return 'mediawiki ' . $option;
