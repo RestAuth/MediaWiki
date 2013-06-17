@@ -14,6 +14,8 @@
  *      table called user_properties (note the naming collision with
  *      =>properties). In many parts of MediaWiki code these =>preferences
  *      are called "options", and thats what we call them here.
+ *
+ *      See: http://www.mediawiki.org/wiki/Manual:User_properties_table
  * preference
  *      A key/value pair that defines some user-specific behaviour in
  *      *MediaWiki*. The term doesn't exist in MediaWiki but is a mere
@@ -21,12 +23,18 @@
  * property
  *      A key/value pair that defines some user-specific behaviour in
  *      *RestAuth*.
+ * refresh
+ *      This term describes that =>properties from RestAuth are saved *to* the
+ *      local database. Opposite of =>update.
  * setting
  *      MediaWiki stores some =>preferences as properties of the User object.
  *      They are part of the main "user" table in the database and are
  *      accessable as object properties, e.g. $wgUser=>mEmail.
  *
  *      See: http://www.mediawiki.org/wiki/Manual:User_table
+ * update
+ *      This term describes that local modifications are saved *to RestAuth*.
+ *      Opposite of =>refresh.
  */
 
 require_once("$IP/includes/AuthPlugin.php");
