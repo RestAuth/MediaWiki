@@ -301,6 +301,10 @@ class RestAuthPlugin extends AuthPlugin {
     {
         wfDebug("- START: " . __FUNCTION__ . "\n");
         foreach ($this->settingsMapping as $prop => $raProp) {
+            if (in_array($key, $wgRestAuthIgnoredOptions)) {
+                continue; // filter ignored options
+            }
+
             $this->_handleSaveSetting($raProperties, $raProp, $user->$prop,
                 $raSetProperties);
         }
@@ -552,6 +556,7 @@ class RestAuthPlugin extends AuthPlugin {
             } elseif ($prop_name == 'email') {
                 $user->mEmail = $value;
             } elseif ($prop_name == 'email confirmed') {
+//TODO: Set to true or false depending on value
                 $user->mEmailConfirmed = $value;
             } elseif (array_key_exists($prop_name, $default_options)) {
                 // finally use the property from RestAuth, if the
