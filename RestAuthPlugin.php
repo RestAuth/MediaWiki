@@ -227,8 +227,7 @@ class RestAuthPlugin extends AuthPlugin {
     }
 
     /**
-     * Called whenever a user logs in. It updates local groups to mach those
-     * from the remote database.
+     * Called whenever a user logs in, =>refreshes =>preferences and groups.
      *
      * Also called by fnRestAuthRefreshCurrentUser (which registers the
      * BeforeInitialize-Hook), if the user views Special:Preferences or
