@@ -608,7 +608,6 @@ class RestAuthPlugin extends AuthPlugin {
                 // finally use the property from RestAuth, if the
                 // property exists as a default option:
 
-//TODO: Only set if this is a valid options (check in default options)
 //TODO: Convert values to correct types depending on gettype($default)
                 $user->mOptions[$pref] = $value;
                 $user->mOptionsOverrides[$pref] = $value;
