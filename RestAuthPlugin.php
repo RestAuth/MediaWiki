@@ -167,7 +167,7 @@ class RestAuthPlugin extends AuthPlugin {
     public function __construct() {
         $this->conn = fnRestAuthGetConnection();
 
-        $this->PreferenceMapping = array(
+        $this->preferenceMapping = array(
             // NOTE: 'full name' is a predefined property name.
             'mRealName' => $this->raPropertyName('full name'),
             'email' => $this->raPropertyName('email'),
@@ -341,7 +341,7 @@ class RestAuthPlugin extends AuthPlugin {
         &$raSetProperties, &$raDelProperties)
     {
         wfDebug("- START: " . __FUNCTION__ . "\n");
-        foreach ($this->PreferenceMapping as $prop => $raProp) {
+        foreach ($this->preferenceMapping as $prop => $raProp) {
             if (in_array($key, $wgRestAuthIgnoredPreferences)) {
                 continue; // filter ignored options
             }
@@ -355,7 +355,7 @@ class RestAuthPlugin extends AuthPlugin {
         // are always strings).
 
         // 'email confirmed' is prefixed if 'email' is prefixed.
-        if (strpos($this->PreferenceMapping['email'], 'mediawiki ') === 0) {
+        if (strpos($this->preferenceMapping['email'], 'mediawiki ') === 0) {
             $raProp = 'mediawiki email confirmed';
         } else {
             $raProp = 'email confirmed';
