@@ -21,7 +21,7 @@ $wgRestAuthIgnoredOptions = array(
 // default, if not set at all
 $wgRestAuthGlobalOptions = array(
     'language' => true,
-    'real name' => true,
+    'full name' => true,
     'email' => true,
     'email confirmed' => true,
 );
@@ -35,9 +35,7 @@ $wgRestAuthRefresh = 300;
  * Please see the documentation for the BeforeInitialize Hook if needed.
  */
 function fnRestAuthUpdateFromRestAuth($title, $article, $output, $user, $request, $this) {
-    wfDebug("- START: " . __FUNCTION__ . "\n");
     if (!$user->isLoggedIn()) {
-        wfDebug("--- Not logged in.\n");
         return true;
     }
 
@@ -47,7 +45,6 @@ function fnRestAuthUpdateFromRestAuth($title, $article, $output, $user, $request
             && SpecialPage::resolveAlias($title->getText()) === "Preferences"
             && $request->getMethod() === 'GET')
     {
-        wfDebug("--- Updating: GET Special:Preferences.\n");
         $update = true; // update when viewing Special:Preferences
     } else {
         global $wgRestAuthRefresh;
@@ -57,7 +54,6 @@ function fnRestAuthUpdateFromRestAuth($title, $article, $output, $user, $request
         $now = time();
         $timestamp = $user->getIntOption('RestAuthRefreshTimestamp', $now);
         if ($timestamp + $wgRestAuthRefresh < $now) {
-            wfDebug("--- Updating: Regular sync.\n");
             $update = true;
         }
     }
@@ -67,7 +63,6 @@ function fnRestAuthUpdateFromRestAuth($title, $article, $output, $user, $request
         $wgAuth->updateUser($user);
     }
 
-    wfDebug("-   END: " . __FUNCTION__ . "\n");
     return true;
 }
 
@@ -128,7 +123,8 @@ class RestAuthPlugin extends AuthPlugin {
         $this->conn = fnRestAuthGetConnection();
 
         $this->settingsMapping = array(
-            'mRealName' => $this->raOptionName('real name'),
+            // NOTE: 'full name' is a predefined property name.
+            'mRealName' => $this->raOptionName('full name'),
             'email' => $this->raOptionName('email'),
             // email_confirmed is handled seperately - see below
         );
@@ -551,7 +547,7 @@ class RestAuthPlugin extends AuthPlugin {
                 continue; // filter ignored options
             }
 
-            if ($prop_name == 'real name') {
+            if ($prop_name == 'full name') {
                 $user->mRealName = $value;
             } elseif ($prop_name == 'email') {
                 $user->mEmail = $value;
