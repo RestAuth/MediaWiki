@@ -229,9 +229,12 @@ class RestAuthPlugin extends AuthPlugin {
     /**
      * Called whenever a user logs in, =>refreshes =>preferences and groups.
      *
+     * NOTE: This function does a =>refresh, not an =>update, but its name
+     *       is defined by the AuthPlugin interface.
+     *
      * Also called by fnRestAuthRefreshCurrentUser (which registers the
      * BeforeInitialize-Hook), if the user views Special:Preferences or
-     * $wgRestAuthRefresh seconds have passed since the last synchronization.
+     * $wgRestAuthRefresh seconds have passed since the last =>refresh.
      */
     public function updateUser (&$user) {
         wfDebug("- START: " . __FUNCTION__ . "($user)\n");
@@ -278,7 +281,7 @@ class RestAuthPlugin extends AuthPlugin {
     }
 
     /**
-     * Update the external user database with =>preferences.
+     * =>Update the external user database with =>preferences.
      *
      * This is called when the user hits 'submit' on Special:Preferences. This
      * function is better then implementing Hooks provided by User::save,
@@ -325,16 +328,16 @@ class RestAuthPlugin extends AuthPlugin {
                 $raUser->removeProperty($raProp);
             }
 
-            wfDebug("-   END: fnRestAuthSaveSettings\n");
+            wfDebug("-   END: " . __FUNCTION__ . "\n");
             return true;
         } catch (RestAuthException $e) {
-            wfDebug("- EXCEPTION: fnRestAuthSaveSettings - $e\n");
+            wfDebug("- EXCEPTION: " . __FUNCTION__ . " - $e\n");
             throw new MWRestAuthError($e);
         }
     }
 
     /**
-     * Save =>settings (NOT =>options!) to the RestAuth database.
+     * Update =>settings (NOT =>options!) to the RestAuth database.
      */
     public function updateExternalDBSettings ($raProperties,
         &$raSetProperties, &$raDelProperties)
