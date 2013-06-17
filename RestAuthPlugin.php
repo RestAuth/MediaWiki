@@ -599,8 +599,11 @@ class RestAuthPlugin extends AuthPlugin {
             } elseif ($pref == 'email') {
                 $user->mEmail = $value;
             } elseif ($pref == 'email confirmed') {
-//TODO: Set to true or false depending on value
-                $user->mEmailConfirmed = $value;
+                if ($value === '1') {
+                    $user->mEmailConfirmed = true;
+                } else {
+                    $user->mEmailConfirmed = false;
+                }
             } elseif (array_key_exists($pref, $default_options)) {
                 // finally use the property from RestAuth, if the
                 // property exists as a default option:
