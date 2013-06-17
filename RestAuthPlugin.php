@@ -308,7 +308,7 @@ class RestAuthPlugin extends AuthPlugin {
             if (in_array($key, $wgRestAuthIgnoredPreferences)) {
                 continue; // filter ignored options
             }
-            $this->_handleSaveOption($raProperties, $key, $value,
+            $this->_handleUpdateOption($raProperties, $key, $value,
                 $raSetProperties, $raDelProperties);
 
         }
@@ -348,7 +348,7 @@ class RestAuthPlugin extends AuthPlugin {
                 continue; // filter ignored options
             }
 
-            $this->_handleSaveSetting($raProperties, $raProp, $user->$prop,
+            $this->_handleUpdateSetting($raProperties, $raProp, $user->$prop,
                 $raSetProperties);
         }
 
@@ -370,13 +370,13 @@ class RestAuthPlugin extends AuthPlugin {
         } else {
             $value = '0';
         }
-        $this->_handleSaveSetting($raProperties, $raProp, $value,
+        $this->_handleUpdateSetting($raProperties, $raProp, $value,
             $raSetProperties);
 
         wfDebug("-   END: " . __FUNCTION__ . "\n");
     }
 
-    private function _handleSaveSetting($raProperties, $raProp, $value,
+    private function _handleUpdateSetting($raProperties, $raProp, $value,
         &$raSetProperties)
     {
 //TODO: Normalize value
@@ -391,7 +391,7 @@ class RestAuthPlugin extends AuthPlugin {
         }
     }
 
-    private function _handleSaveOption($raProperties, $key, $value,
+    private function _handleUpdateOption($raProperties, $key, $value,
             &$raSetProperties, &$raDelProperties)
     {
         $default = User::getDefaultOption($key);
