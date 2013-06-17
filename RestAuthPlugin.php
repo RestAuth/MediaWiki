@@ -158,8 +158,8 @@ class RestAuthPlugin extends AuthPlugin {
 
         $this->settingsMapping = array(
             // NOTE: 'full name' is a predefined property name.
-            'mRealName' => $this->raOptionName('full name'),
-            'email' => $this->raOptionName('email'),
+            'mRealName' => $this->raPreferenceName('full name'),
+            'email' => $this->raPreferenceName('email'),
             // email_confirmed is handled seperately - see below
         );
     }
@@ -227,7 +227,7 @@ class RestAuthPlugin extends AuthPlugin {
         wfDebug("- START: " . __FUNCTION__ . "($user)\n");
         # When a user logs in, optionally fill in preferences and such.
         $this->refreshUserGroupsFromRestAuth($user);
-        $this->refreshUserSettingsFromRestAuth($user);
+        $this->refreshUserPreferencesFromRestAuth($user);
 
         # reload everything
         $user->invalidateCache();
@@ -251,14 +251,11 @@ class RestAuthPlugin extends AuthPlugin {
     }
 
     public function setPassword ($user, $password) {
-        wfDebug("- START: " . __FUNCTION__ . "\n");
         try {
             $user = new RestAuthUser($this->conn, $user->getName());
             $user->setPassword($password);
-            wfDebug("-   END: " . __FUNCTION__ . "\n");
             return true;
         } catch (RestAuthException $e) {
-            wfDebug("-   EXP: " . __FUNCTION__ . "\n");
             throw new MWRestAuthError($e);
         }
     }
@@ -289,16 +286,11 @@ class RestAuthPlugin extends AuthPlugin {
         $raSetProperties = array();
         $raDelProperties = array();
 
-        // In MediaWiki, settings (as opposed to "options") are stored directly
-        // in the user table and are properties of a User instance (e.g.
-        // $user->email). Options are handled below.
+        // Handle =>settings.
         $this->updateSettingsToExternalDB(
             $raProperties, $raSetProperties, $raDelproperties);
 
-
-        // Finally handle options (which are in a seperate option table in
-        // MediaWiki)
-
+        // Handle =>options.
         foreach($user->getOptions() as $key => $value) {
             if (in_array($key, $wgRestAuthIgnoredPreferences)) {
                 continue; // filter ignored options
@@ -317,6 +309,7 @@ class RestAuthPlugin extends AuthPlugin {
                 $raUser->setProperties($raSetProperties);
             }
 
+            // .. and delete any properties set back to the default.
             foreach($raDelProperties as $raProp) {
                 wfDebug("----- Del '$raProp'\n");
                 $raUser->removeProperty($raProp);
@@ -330,6 +323,9 @@ class RestAuthPlugin extends AuthPlugin {
         }
     }
 
+    /**
+     * Save =>settings (NOT =>options!) to the RestAuth database.
+     */
     public function updateSettingsToExternalDB ($raProperties,
         &$raSetProperties, &$raDelProperties)
     {
@@ -386,7 +382,7 @@ class RestAuthPlugin extends AuthPlugin {
             &$raSetProperties, &$raDelProperties)
     {
         $default = User::getDefaultOption($key);
-        $raProp = $this->raOptionName($key);
+        $raProp = $this->raPreferenceName($key);
 
         // normalize default-value:
         if (is_int($default) || is_double($default)) {
@@ -491,7 +487,7 @@ class RestAuthPlugin extends AuthPlugin {
             wfDebug("--- User is autocreated - syncing.\n");
             // true upon login and user doesn't exist locally
             $this->refreshUserGroupsFromRestAuth($user);
-            $this->refreshUserSettingsFromRestAuth($user);
+            $this->refreshUserPreferencesFromRestAuth($user);
         }
         wfDebug("-   END: " . __FUNCTION__ . "\n");
     }
@@ -529,11 +525,9 @@ class RestAuthPlugin extends AuthPlugin {
     }
 
     /**
-     * Update local settings from RestAuth.
-     *
-     * This function saves settings to the database.
+     * Update =>preferences (=>settings AND =>options!) from RestAuth.
      */
-    public function refreshUserSettingsFromRestAuth(&$user) {
+    public function refreshUserPreferencesFromRestAuth(&$user) {
         // initialize local user:
         $user->load();
         if (wfReadOnly()) { return; }
@@ -676,9 +670,9 @@ class RestAuthPlugin extends AuthPlugin {
         wfDebug("-   END: " . __FUNCTION__ . "\n");
     }
     /**
-     * Helper function to see if an option is a global option or not.
+     * Helper function to see if a =>preference is a global preference or not.
      */
-    private function raOptionName($option) {
+    private function raPreferenceName($option) {
         global $wgRestAuthGlobalProperties;
 
         if (array_key_exists($option, $wgRestAuthGlobalProperties) &&
