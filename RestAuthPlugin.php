@@ -236,8 +236,8 @@ class RestAuthPlugin extends AuthPlugin {
     public function updateUser (&$user) {
         wfDebug("- START: " . __FUNCTION__ . "($user)\n");
         # When a user logs in, optionally fill in preferences and such.
-        $this->refreshGroupsFromRestAuth($user);
-        $this->refreshPreferencesFromRestAuth($user);
+        $this->refreshGroups($user);
+        $this->refreshPreferences($user);
 
         # reload everything
         $user->invalidateCache();
@@ -496,8 +496,8 @@ class RestAuthPlugin extends AuthPlugin {
         if ($autocreate) {
             wfDebug("--- User is autocreated - syncing.\n");
             // true upon login and user doesn't exist locally
-            $this->refreshGroupsFromRestAuth($user);
-            $this->refreshPreferencesFromRestAuth($user);
+            $this->refreshGroups($user);
+            $this->refreshPreferences($user);
         }
         wfDebug("-   END: " . __FUNCTION__ . "\n");
     }
@@ -537,7 +537,7 @@ class RestAuthPlugin extends AuthPlugin {
     /**
      * Update =>preferences (=>settings AND =>options!) from RestAuth.
      */
-    public function refreshPreferencesFromRestAuth(&$user) {
+    public function refreshPreferences(&$user) {
         // initialize local user:
         $user->load();
         if (wfReadOnly()) { return; }
@@ -620,7 +620,7 @@ class RestAuthPlugin extends AuthPlugin {
     /**
       * Synchronize the local group database with the remote database.
       */
-    public function refreshGroupsFromRestAuth(&$user) {
+    public function refreshGroups(&$user) {
         wfDebug("- START: " . __FUNCTION__ . "\n");
         $user->load();
         $local_groups = $user->getGroups();
