@@ -26,6 +26,9 @@
  * refresh
  *      This term describes that =>properties from RestAuth are saved *to* the
  *      local database. Opposite of =>update.
+ *
+ *      NOTE: Because of the interface described by AuthPlugin, not all
+ *      functions strictly adhere to this distinction.
  * setting
  *      MediaWiki stores some =>preferences as properties of the User object.
  *      They are part of the main "user" table in the database and are
@@ -45,7 +48,7 @@ $wgHooks['UserAddGroup'][] = 'fnRestAuthUserAddGroup';
 $wgHooks['UserRemoveGroup'][] = 'fnRestAuthUserRemoveGroup';
 
 # auto-update local database
-$wgHooks['BeforeInitialize'][] = 'fnRestAuthUpdateFromRestAuth';
+$wgHooks['BeforeInitialize'][] = 'fnRestAuthRefreshCurrentUser';
 
 // default settings;
 if (! isset($wgRestAuthHost)) $wgRestAuthHost = 'localhost';
@@ -87,7 +90,7 @@ $wgRestAuthRefresh = 300;
  *
  * Please see the documentation for the BeforeInitialize Hook if needed.
  */
-function fnRestAuthUpdateFromRestAuth($title, $article, $output, $user, $request, $this) {
+function fnRestAuthRefreshCurrentUser($title, $article, $output, $user, $request, $this) {
     if (!$user->isLoggedIn()) {
         return true;
     }
@@ -227,7 +230,7 @@ class RestAuthPlugin extends AuthPlugin {
      * Called whenever a user logs in. It updates local groups to mach those
      * from the remote database.
      *
-     * Also called by fnRestAuthUpdateFromRestAuth (which registers the
+     * Also called by fnRestAuthRefreshCurrentUser (which registers the
      * BeforeInitialize-Hook), if the user views Special:Preferences or
      * $wgRestAuthRefresh seconds have passed since the last synchronization.
      */
