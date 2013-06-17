@@ -13,12 +13,26 @@ $wgHooks['BeforeInitialize'][] = 'fnRestAuthUpdateFromRestAuth';
 
 // default settings;
 if (! isset($wgRestAuthHost)) $wgRestAuthHost = 'localhost';
+
+/**
+ * List of ignored options.
+ *
+ * This may either be a property of the User-class (e.g. mRealName) or
+ * an option in the user_options table.
+ */
 $wgRestAuthIgnoredOptions = array(
     "RestAuthRefreshTimestamp",
     "watchlisttoken",
 );
 
-// default, if not set at all
+/**
+ * wgRestAuthGlobalOptions configures what options are global options.
+ * Non-global options will be saved to RestAuth with the prefix 'mediawiki '.
+ *
+ * NOTE: The keys defined here are property names *in RestAuth* and not of
+ * MediaWiki options. The key difference is that 'full name' and
+ * 'email confirmed' are standard RestAuth options and are mapped accordingly.
+ */
 $wgRestAuthGlobalOptions = array(
     'language' => true,
     'full name' => true,
