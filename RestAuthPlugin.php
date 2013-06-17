@@ -35,7 +35,6 @@ require_once('RestAuth/restauth.php');
 # group handling:
 $wgHooks['UserAddGroup'][] = 'fnRestAuthUserAddGroup';
 $wgHooks['UserRemoveGroup'][] = 'fnRestAuthUserRemoveGroup';
-$wgHooks['UserRights'][] = 'fnRestAuthUserRights';
 
 # auto-update local database
 $wgHooks['BeforeInitialize'][] = 'fnRestAuthUpdateFromRestAuth';
@@ -111,17 +110,6 @@ function fnRestAuthUpdateFromRestAuth($title, $article, $output, $user, $request
 
     return true;
 }
-
-/**
- * UserRights.
- *
- * This Hook should replace UserAddGroup and UserRemoveGroup, once all calles
- * to User::addGroup and User::removeGroup are supplemented by this hook.
- */
-function fnRestAuthUserRights(&$user, $add, $remove) {
-    return true;
-}
-
 
 /**
  * Called when a bureaucrat adds the user to a group via Special:UserRights.
