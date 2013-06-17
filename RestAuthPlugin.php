@@ -1,5 +1,34 @@
 <?php
 
+/**
+ * GLOSSARY
+ *
+ * Because of confusing overlapping naming, there is a glossary defined here.
+ * Comments refer to terms defined here as "=>term".
+ *
+ * NOTE: The usage of these terms is far from consistent with this glossary
+ *      yet. Sorry.
+ *
+ * option
+ *      All =>preferences that are not =>settings are stored in a seperate
+ *      table called user_properties (note the naming collision with
+ *      =>properties). In many parts of MediaWiki code these =>preferences
+ *      are called "options", and thats what we call them here.
+ * preference
+ *      A key/value pair that defines some user-specific behaviour in
+ *      *MediaWiki*. The term doesn't exist in MediaWiki but is a mere
+ *      generalization of =>options and =>settings.
+ * property
+ *      A key/value pair that defines some user-specific behaviour in
+ *      *RestAuth*.
+ * setting
+ *      MediaWiki stores some =>preferences as properties of the User object.
+ *      They are part of the main "user" table in the database and are
+ *      accessable as object properties, e.g. $wgUser=>mEmail.
+ *
+ *      See: http://www.mediawiki.org/wiki/Manual:User_table
+ */
+
 require_once("$IP/includes/AuthPlugin.php");
 require_once('RestAuth/restauth.php');
 
@@ -32,6 +61,9 @@ $wgRestAuthIgnoredOptions = array(
  * NOTE: The keys defined here are property names *in RestAuth* and not of
  * MediaWiki options. The key difference is that 'full name' and
  * 'email confirmed' are standard RestAuth options and are mapped accordingly.
+ *
+ * If any options are added here, the name in RestAuth and MediaWiki should be
+ * identical, otherwise the code has to be modified.
  */
 $wgRestAuthGlobalOptions = array(
     'language' => true,
