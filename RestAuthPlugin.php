@@ -169,8 +169,8 @@ class RestAuthPlugin extends AuthPlugin {
 
         $this->settingsMapping = array(
             // NOTE: 'full name' is a predefined property name.
-            'mRealName' => $this->raPreferenceName('full name'),
-            'email' => $this->raPreferenceName('email'),
+            'mRealName' => $this->raPropertyName('full name'),
+            'email' => $this->raPropertyName('email'),
             // email_confirmed is handled seperately - see below
         );
     }
@@ -393,7 +393,7 @@ class RestAuthPlugin extends AuthPlugin {
             &$raSetProperties, &$raDelProperties)
     {
         $default = User::getDefaultOption($key);
-        $raProp = $this->raPreferenceName($key);
+        $raProp = $this->raPropertyName($key);
 
         // normalize default-value:
         if (is_int($default) || is_double($default)) {
@@ -683,7 +683,7 @@ class RestAuthPlugin extends AuthPlugin {
     /**
      * Helper function to see if a =>preference is a global preference or not.
      */
-    private function raPreferenceName($option) {
+    private function raPropertyName($option) {
         global $wgRestAuthGlobalProperties;
 
         if (array_key_exists($option, $wgRestAuthGlobalProperties) &&
