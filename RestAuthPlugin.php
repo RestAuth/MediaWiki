@@ -268,7 +268,7 @@ class RestAuthPlugin extends AuthPlugin {
     }
 
     /**
-     * Update the external user database.
+     * Update the external user database with =>preferences.
      *
      * This is called when the user hits 'submit' on Special:Preferences. This
      * function is better then implementing Hooks provided by User::save,
