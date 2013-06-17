@@ -558,7 +558,7 @@ class RestAuthPlugin extends AuthPlugin {
 
         // get all options from the RestAuth service
         try {
-            $rest_options = $ra_user->getProperties();
+            $raProps = $ra_user->getProperties();
         } catch (RestAuthException $e) {
             // if this is the case, we just don't load any options.
             wfDebug("Unable to get options from auth-service: " . $e . "\n");
@@ -567,47 +567,48 @@ class RestAuthPlugin extends AuthPlugin {
 
         // take care of setting all settings and options to the current
         // user object.
-        foreach($rest_options as $key => $value) {
-            if (strpos($key, 'mediawiki ') === 0) {
-                // if this is a mediawiki specific setting, remove the
+        foreach($raProps as $raProp => $value) {
+            if (strpos($raProp, 'mediawiki ') === 0) {
+                // if this is a mediawiki specific =>property, remove the
                 // prefix:
-                $prop_name = substr($key, 10);
+                $pref = substr($raProp, 10);
             } else {
-                // This setting is not specific to MediaWiki. Only use
+                // This =>property is not specific to MediaWiki. Only use
                 // the setting if we find it in $wgRestAuthGlobalProperties.
                 if (is_null($wgRestAuthGlobalProperties) ||
-                    !(array_key_exists($key, $wgRestAuthGlobalProperties)
-                      && $wgRestAuthGlobalProperties[$key]))
+                    !(array_key_exists($raProp, $wgRestAuthGlobalProperties)
+                      && $wgRestAuthGlobalProperties[$raProp]))
                 {
                     continue;
                 }
 
-                // This is a global option where we also have an option
+                // This is a global =>property where we also have a =>property
                 // specific to MediaWiki - which we use instead
-                if (array_key_exists('mediawiki ' . $key, $rest_options)) {
+                if (array_key_exists('mediawiki ' . $raProp, $raProps)) {
                     continue;
                 }
-                $prop_name = $key;
+                $pref = $raProp;
             }
 
-            if (!is_null($wgRestAuthIgnoredPreferences) && in_array($prop_name, $wgRestAuthIgnoredPreferences)) {
+            if (!is_null($wgRestAuthIgnoredPreferences) && in_array($pref, $wgRestAuthIgnoredPreferences)) {
                 continue; // filter ignored options
             }
 
-            if ($prop_name == 'full name') {
+            if ($pref == 'full name') {
                 $user->mRealName = $value;
-            } elseif ($prop_name == 'email') {
+            } elseif ($pref == 'email') {
                 $user->mEmail = $value;
-            } elseif ($prop_name == 'email confirmed') {
+            } elseif ($pref == 'email confirmed') {
 //TODO: Set to true or false depending on value
                 $user->mEmailConfirmed = $value;
-            } elseif (array_key_exists($prop_name, $default_options)) {
+            } elseif (array_key_exists($pref, $default_options)) {
                 // finally use the property from RestAuth, if the
                 // property exists as a default option:
 
+//TODO: Only set if this is a valid options (check in default options)
 //TODO: Convert values to correct types depending on gettype($default)
-                $user->mOptions[$prop_name] = $value;
-                $user->mOptionsOverrides[$prop_name] = $value;
+                $user->mOptions[$pref] = $value;
+                $user->mOptionsOverrides[$pref] = $value;
             }
         }
 
