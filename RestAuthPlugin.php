@@ -391,11 +391,11 @@ class RestAuthPlugin extends AuthPlugin {
         }
     }
 
-    private function _handleUpdateOption($raProperties, $key, $value,
+    private function _handleUpdateOption($raProperties, $option, $value,
             &$raSetProperties, &$raDelProperties)
     {
-        $default = User::getDefaultOption($key);
-        $raProp = $this->raPropertyName($key);
+        $default = User::getDefaultOption($option);
+        $raProp = $this->raPropertyName($option);
 
         // normalize default-value:
         if (is_int($default) || is_double($default)) {
@@ -490,19 +490,21 @@ class RestAuthPlugin extends AuthPlugin {
     }
 
     /**
-     * Update a user from RestAuth. This is called when a new user was created
-     * ($autocreate=false) or when a user logs in and doesn't yet exist
-     * locally ($autocreate=true).
+     * Initialize a new user. =>Refreshes groups and =>Preferences.
+     *
+     * This is called when a new user was created ($autocreate=false) or when a
+     * user logs in and doesn't yet exist locally ($autocreate=true).
+     *
+     * We only =>refresh anything if the user was autocreated, if this is a
+     * totally new user (to RestAuth AND MediaWiki), there shouldn't be any
+     * data in RestAuth.
      */
     public function initUser (&$user, $autocreate) {
-        wfDebug("- START: " . __FUNCTION__ . "\n");
         if ($autocreate) {
-            wfDebug("--- User is autocreated - syncing.\n");
             // true upon login and user doesn't exist locally
             $this->refreshGroups($user);
             $this->refreshPreferences($user);
         }
-        wfDebug("-   END: " . __FUNCTION__ . "\n");
     }
 
     public function strict () {
@@ -538,7 +540,7 @@ class RestAuthPlugin extends AuthPlugin {
     }
 
     /**
-     * Update =>preferences (=>settings AND =>options!) from RestAuth.
+     * =>Refresh =>preferences (=>settings AND =>options!) from RestAuth.
      */
     public function refreshPreferences(&$user) {
         // initialize local user:
