@@ -97,10 +97,7 @@ function fnRestAuthRefreshCurrentUser($title, $article, $output, $user, $request
 
     $update = false;
 
-    if ($title->getNamespace() === NS_SPECIAL
-            && SpecialPage::resolveAlias($title->getText()) === "Preferences"
-            && $request->getMethod() === 'GET')
-    {
+    if ($title->isSpecial('Preferences') && $request->getMethod() === 'GET') {
         $update = true; // update when viewing Special:Preferences
     } else {
         global $wgRestAuthRefresh;
