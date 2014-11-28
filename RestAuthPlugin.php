@@ -137,7 +137,9 @@ function fnRestAuthUserAddGroup($user, $group) {
     $ra_group = new RestAuthGroup($conn, $group);
     try {
         $ra_group->addUser($user->getName());
-//TODO: catch 404 if we're out of sync with the RestAuth server
+    } catch (RestAuthResourceNotFound $e) {
+        $ra_group = RestAuthGroup::create($conn, $group);
+        $ra_group->addUser($user->getName());
     } catch (RestAuthException $e) {
         throw new MWRestAuthError($e);
     }
