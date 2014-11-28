@@ -84,6 +84,21 @@ $wgRestAuthGlobalProperties = array(
 $wgRestAuthRefresh = 300;
 
 /**
+ * Function to determine if a users groups/properties need to be updated.
+ */
+function fnRestAuthUserNeedsRefresh($user) {
+    global $wgRestAuthRefresh;
+
+    $now = time();
+    $timestamp = $user->getIntOption('RestAuthRefreshTimestamp', $now);
+    if ($timestamp + $wgRestAuthRefresh < $now) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+/**
  * This function is called upon every pageview and refreshes the local database
  * cache if the last refresh is more than $RestAuthRefresh seconds ago or we are on
  * Special:Preferences.
@@ -100,15 +115,10 @@ function fnRestAuthRefreshCurrentUser($title, $article, $output, $user, $request
     if ($title->isSpecial('Preferences') && $request->getMethod() === 'GET') {
         $update = true; // update when viewing Special:Preferences
     } else {
-        global $wgRestAuthRefresh;
 
         // Update local database if the last refresh is more than
         // $wgRestAuthRefresh seconds ago:
-        $now = time();
-        $timestamp = $user->getIntOption('RestAuthRefreshTimestamp', $now);
-        if ($timestamp + $wgRestAuthRefresh < $now) {
-            $update = true;
-        }
+        $update = fnRestAuthUserNeedsRefresh($user);
     }
 
     if ($update) {
