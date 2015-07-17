@@ -285,7 +285,7 @@ class RestAuthPlugin extends AuthPlugin {
     /**
      * See https://bugzilla.wikimedia.org/show_bug.cgi?id=49641
      */
-    public function updateExternalDBGroups(&$user, $addgroups, $delgroups) {
+    public function updateExternalDBGroups($user, $addgroups, $delgroups = array()) {
         return true;
     }
 
