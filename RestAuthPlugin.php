@@ -285,7 +285,7 @@ class RestAuthPlugin extends AuthPlugin {
     /**
      * See https://bugzilla.wikimedia.org/show_bug.cgi?id=49641
      */
-    public function updateExternalDBGroups ($user, $addgroups, $delgroups) {
+    public function updateExternalDBGroups(&$user, $addgroups, $delgroups) {
         return true;
     }
 
@@ -508,7 +508,7 @@ class RestAuthPlugin extends AuthPlugin {
      * totally new user (to RestAuth AND MediaWiki), there shouldn't be any
      * data in RestAuth.
      */
-    public function initUser (&$user, $autocreate) {
+    public function initUser (&$user, $autocreate = false) {
         if ($autocreate) {
             // true upon login and user doesn't exist locally
             $this->refreshGroups($user);
