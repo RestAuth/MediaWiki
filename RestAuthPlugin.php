@@ -531,12 +531,12 @@ class RestAuthPlugin extends AuthPlugin {
         return true;
     }
 
-    /**                                                                                                                                                                                                                                                 |
+    /**
      * RestAuth has case-insensitive usernames. MediaWiki has not.
      * Therefore we lowercase the second to last character of the
      * username to prevent the creation of multiple MW users
      * for a single RA user.
-     */                                                                                                                                                                                                                                                 |
+     */
     function getCanonicalName ($username) {
         global $wgContLang;
         return $wgContLang->ucfirst($wgContLang->lc($username));
