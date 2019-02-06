@@ -351,9 +351,11 @@ class RestAuthPlugin extends AuthPlugin {
     public function updateExternalDBSettings ($raProperties,
         &$raSetProperties, &$raDelProperties)
     {
+		global $wgRestAuthIgnoredPreferences;
+
         wfDebug("- START: " . __FUNCTION__ . "\n");
         foreach ($this->preferenceMapping as $prop => $raProp) {
-            if (in_array($key, $wgRestAuthIgnoredPreferences)) {
+            if (in_array($prop, $wgRestAuthIgnoredPreferences)) {
                 continue; // filter ignored options
             }
 
@@ -508,7 +510,7 @@ class RestAuthPlugin extends AuthPlugin {
      * totally new user (to RestAuth AND MediaWiki), there shouldn't be any
      * data in RestAuth.
      */
-    public function initUser (&$user, $autocreate = false) {
+    public function onLocalUserCreated(&$user, $autocreate = false) {
         if ($autocreate) {
             // true upon login and user doesn't exist locally
             $this->refreshGroups($user);
@@ -633,7 +635,7 @@ class RestAuthPlugin extends AuthPlugin {
         $user->mOptions['RestAuthRefreshTimestamp'] = time();
 
         // begin saving the user to the local database:
-        $user->mTouched = self::newTouchedTimestamp();
+        $user->setOption('echo-seen-time', $this->newTouchedTimestamp());
 
         // save user to the database:
         $user->saveSettings();
@@ -676,7 +678,7 @@ class RestAuthPlugin extends AuthPlugin {
                                 ),
                                 __METHOD__,
                                 array('IGNORE'));
-            $user->mGroups = array_diff($user->mGroups, array($group));
+            $user->removedGroup($group);
         }
 
         # add new groups found in the remote database:
@@ -694,7 +696,7 @@ class RestAuthPlugin extends AuthPlugin {
                     __METHOD__,
                     array('IGNORE'));
             }
-            $user->mGroups[] = $group;
+            $user->addGroup($group);
         }
 
         # reload cache
