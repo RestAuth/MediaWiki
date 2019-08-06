@@ -1,7 +1,8 @@
 {
-	"name": "AuthRestAuth",
+	"name": "RestAuth",
 	"version": "1.0.0",
 	"author": [
+		"Mathias Ertl",
 		"David Kaufmann"
 	],
 	"url": "https://github.com/fsinf/restauth-mediawiki",
@@ -10,6 +11,20 @@
 	"type": "auth",
 	"AutoloadClasses": {
 		"MediaWiki\\Auth\\RestAuthPrimaryAuthenticationProvider": "RestAuthPrimaryAuthenticationProvider.php"
+	},
+	"MessageDirs": {
+		"RestAuth": [
+			"i18n"
+		]
+	},
+	"Hooks": {
+		"BeforeInitialize": "RestAuthPrimaryAuthenticationProvider::fnRestAuthRefreshCurrentUser",
+		"UserAddGroup": "RestAuthPrimaryAuthenticationProvider::fnRestAuthAddGroup",
+		"UserRemoveGroup": "RestAuthPrimaryAuthenticationProvider::fnRestAuthRemoveGroup",
+		"UserLoggedIn": "RestAuthPrimaryAuthenticationProvider::fnRestAuthUpdateUser",
+		"UserGroupsChanged": "RestAuthPrimaryAuthenticationProvider::fnRestAuthUpdateGroups",
+		"UserSaveSettings": "RestAuthPrimaryAuthenticationProvider::fnRestAuthUserSaveSettings",
+		"LocalUserCreated": "RestAuthPrimaryAuthenticationProvider::fnRestAuthLocalUserCreated"
 	},
 	"requires": {
 		"MediaWiki": ">= 1.31.0"
