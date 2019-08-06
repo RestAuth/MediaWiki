@@ -1,0 +1,19 @@
+{
+	"name": "AuthRestAuth",
+	"version": "1.0.0",
+	"author": [
+		"David Kaufmann"
+	],
+	"url": "https://github.com/fsinf/restauth-mediawiki",
+	"description": "Extension for MediaWiki allowing to authenticate users against RestAuth",
+	"license-name": "GPL-3.0+",
+	"type": "auth",
+	"AutoloadClasses": {
+		"MediaWiki\\Auth\\RestAuthPrimaryAuthenticationProvider": "RestAuthPrimaryAuthenticationProvider.php"
+	},
+	"requires": {
+		"MediaWiki": ">= 1.31.0"
+	},
+	"manifest_version": 1
+}
+
