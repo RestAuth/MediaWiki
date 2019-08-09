@@ -51,13 +51,13 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 	public function __construct() {
 		global $wgRestAuthHost;
 		if (isset($wgRestAuthHost)) {
-			$this->wgRestAuthHost = $wgRestAuthHost;
+			self::wgRestAuthHost = $wgRestAuthHost;
 		}
 
-		$this->preferenceMapping = array(
+		self::preferenceMapping = array(
 			// NOTE: 'full name' is a predefined property name.
-			'mRealName' => $this->raPropertyName('full name'),
-			'email' => $this->raPropertyName('email'),
+			'mRealName' => self::raPropertyName('full name'),
+			'email' => self::raPropertyName('email'),
 			// email_confirmed is handled seperately - see below
 		);
 	}
@@ -204,7 +204,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 	 */
 	public function finishAccountCreation( $user, $creator, AuthenticationResponse $response ) {
 		// call sync hook
-		$this->onLocalUserCreated($user, $autocreate = true);
+		self::onLocalUserCreated($user, $autocreate = true);
 		return \StatusValue::newGood();
 	}
 
@@ -218,7 +218,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 
 	public function testUserCanAuthenticate( $username ) {
 		// Assume it can authenticate if it exists
-		return $this->testUserExists( $username );
+		return self::testUserExists( $username );
 	}
 
 	public function providerNormalizeUsername( $username ) {
@@ -227,13 +227,13 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 	}
 
 	public function providerRevokeAccessForUser( $username ) {
-		$reqs = $this->getAuthenticationRequests(
+		$reqs = self::getAuthenticationRequests(
 			AuthManager::ACTION_REMOVE, [ 'username' => $username ]
 		);
 		foreach ( $reqs as $req ) {
 			$req->username = $username;
 			$req->action = AuthManager::ACTION_REMOVE;
-			$this->providerChangeAuthenticationData( $req );
+			self::providerChangeAuthenticationData( $req );
 		}
 	}
 
@@ -252,7 +252,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 	}
 
 	public function beginPrimaryAccountLink( $user, array $reqs ) {
-		if ( $this->accountCreationType() === self::TYPE_LINK ) {
+		if ( self::accountCreationType() === self::TYPE_LINK ) {
 			throw new \BadMethodCallException( __METHOD__ . ' is not implemented.' );
 		} else {
 			throw new \BadMethodCallException(
@@ -382,11 +382,6 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 		throw new \BadMethodCallException( __METHOD__ . ' is not implemented.' );
 	}
 
-    private function newTouchedTimestamp() {
-        global $wgClockSkewFudge;
-        return wfTimestamp(TS_MW, time() + $wgClockSkewFudge);
-    }
-
     /**
      * Called whenever a user logs in, =>refreshes =>preferences and groups.
      *
@@ -400,8 +395,8 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     public function fnRestAuthUpdateUser ($user) {
         wfDebug("- START: " . __FUNCTION__ . "($user)\n");
         # When a user logs in, optionally fill in preferences and such.
-        $this->refreshGroups($user);
-        $this->refreshPreferences($user);
+		self::refreshGroups($user);
+		self::refreshPreferences($user);
 
         # reload everything
         $user->invalidateCache();
@@ -432,7 +427,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         $raDelProperties = array();
 
         // Handle =>settings.
-        $this->updateExternalDBSettings(
+		self::updateExternalDBSettings(
             $user, $raProperties, $raSetProperties, $raDelproperties);
 
         // Handle =>options.
@@ -440,7 +435,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
             if (in_array($key, $wgRestAuthIgnoredPreferences)) {
                 continue; // filter ignored options
             }
-            $this->_handleUpdateOption($raProperties, $key, $value,
+			self::_handleUpdateOption($raProperties, $key, $value,
                 $raSetProperties, $raDelProperties);
 
         }
@@ -477,12 +472,12 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 		global $wgRestAuthIgnoredPreferences;
 
         wfDebug("- START: " . __FUNCTION__ . "\n");
-        foreach ($this->preferenceMapping as $prop => $raProp) {
+        foreach (self::preferenceMapping as $prop => $raProp) {
             if (in_array($prop, $wgRestAuthIgnoredPreferences)) {
                 continue; // filter ignored options
             }
 
-            $this->_handleUpdateSetting($raProperties, $raProp, $user->$prop,
+			self::_handleUpdateSetting($raProperties, $raProp, $user->$prop,
                 $raSetProperties);
         }
 
@@ -491,7 +486,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         // are always strings).
 
         // 'email confirmed' is prefixed if 'email' is prefixed.
-        if (strpos($this->preferenceMapping['email'], 'mediawiki ') === 0) {
+        if (strpos(self::preferenceMapping['email'], 'mediawiki ') === 0) {
             $raProp = 'mediawiki email confirmed';
         } else {
             $raProp = 'email confirmed';
@@ -504,7 +499,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         } else {
             $value = '0';
         }
-        $this->_handleUpdateSetting($raProperties, $raProp, $value,
+		self::_handleUpdateSetting($raProperties, $raProp, $value,
             $raSetProperties);
 
         wfDebug("-   END: " . __FUNCTION__ . "\n");
@@ -529,7 +524,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
             &$raSetProperties, &$raDelProperties)
     {
         $default = User::getDefaultOption($option);
-        $raProp = $this->raPropertyName($option);
+        $raProp = self::raPropertyName($option);
 
         // normalize default-value:
         if (is_int($default) || is_double($default)) {
@@ -596,8 +591,8 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     public function fnRestAuthLocalUserCreated($user, $autocreate = false) {
         if ($autocreate) {
             // true upon login and user doesn't exist locally
-            $this->refreshGroups($user);
-            $this->refreshPreferences($user);
+			self::refreshGroups($user);
+			self::refreshPreferences($user);
         }
     }
 
@@ -605,6 +600,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
      * =>Refresh =>preferences (=>settings AND =>options!) from RestAuth.
      */
     public function refreshPreferences(&$user) {
+        global $wgClockSkewFudge;
         // initialize local user:
         $user->load();
         if (wfReadOnly()) { return; }
@@ -680,7 +676,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         $user->mOptions['RestAuthRefreshTimestamp'] = time();
 
         // begin saving the user to the local database:
-        $user->setOption('echo-seen-time', $this->newTouchedTimestamp());
+        $user->setOption('echo-seen-time', wfTimestamp(TS_MW, time() + $wgClockSkewFudge));
 
         // save user to the database:
         $user->saveSettings();
