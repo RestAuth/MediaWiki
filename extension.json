@@ -17,6 +17,14 @@
 			"i18n"
 		]
 	},
+	"AuthManagerAutoConfig": {
+		"primaryauth": {
+			"MyPreAuthenticationProvider": {
+				"class": "MediaWiki\\Auth\\RestAuthPrimaryAuthenticationProvider",
+				"sort": 50
+			}
+		}
+	},
 	"Hooks": {
 		"BeforeInitialize": "MediaWiki\\Auth\\RestAuthPrimaryAuthenticationProvider::fnRestAuthRefreshCurrentUser",
 		"UserAddGroup": "MediaWiki\\Auth\\RestAuthPrimaryAuthenticationProvider::fnRestAuthAddGroup",

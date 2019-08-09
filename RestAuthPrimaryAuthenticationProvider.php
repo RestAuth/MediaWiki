@@ -3,6 +3,9 @@ namespace MediaWiki\Auth;
 
 use User;
 
+use StatusValue;
+use Message;
+
 require_once('RestAuth/restauth.php');
 require_once('RestAuthError.php');
 
@@ -85,26 +88,28 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
      * Check if a username+password pair is a valid login.
      */
     public function beginPrimaryAuthentication( array $reqs ) {
+        global $wgContLang;
         $req = AuthenticationRequest::getRequestByClass( $reqs, PasswordAuthenticationRequest::class );
         if ( !$req ) {
             return AuthenticationResponse::newAbstain();
         }
 
         if ( $req->username === null || $req->password === null ) {
-            return AuthenticationResponse::newAbstain();
+            return AuthenticationResponse::newFail(new Message("username or password is null"));
         }
 
         $username = User::getCanonicalName( $req->username, 'usable' );
         if ( $username === false ) {
-            return AuthenticationResponse::newAbstain();
+            return AuthenticationResponse::newFail(new Message("Could not get username"));
         }
 
         $user = new RestAuthUser(self::fnRestAuthGetConnection(), $req->username);
         try {
             if ($user->verifyPassword($req->password)) {
-                return AuthenticationResponse::newPass();
+                $user_cleaned = $wgContLang->ucFirst($wgContLang->lc($req->username));
+                return AuthenticationResponse::newPass($user_cleaned);
             } else {
-                return AuthenticationResponse::newFail();
+                return AuthenticationResponse::newFail(new Message("Login failed"));
             }
         } catch (RestAuthException $e) {
             throw new MWRestAuthError($e);
@@ -117,8 +122,9 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     public function providerAllowsAuthenticationDataChange( AuthenticationRequest $req, $checkData = true ) {
         $auth_req = AuthenticationRequest::getRequestByClass( array($req), PasswordAuthenticationRequest::class );
         if ( !$auth_req ) {
-            return \StatusValue::newError("this is no password authentication request");
-        }
+            return StatusValue::newFatal("this is no password authentication request");
+    }
+    return StatusValue::newGood();
     }
 
     /**
@@ -127,7 +133,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     public function providerChangeAuthenticationData( AuthenticationRequest $req ) {
         $auth_req = AuthenticationRequest::getRequestByClass( array($req), PasswordAuthenticationRequest::class );
         if ( !$auth_req ) {
-            return \StatusValue::newError("this is no password authentication request");
+            return StatusValue::newFatal("this is no password authentication request");
         }
         try {
             $user = new RestAuthUser(self::fnRestAuthGetConnection(), $req->username);
@@ -152,9 +158,9 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         // TODO: validate the username instead of just rejecting uppercase logins
         global $wgContLang;
         if ($wgContLang->lc($user->getName()) != $user->getName()) {
-            return \StatusValue::newFatal("Please login with username in lowercase");
+            return StatusValue::newFatal("Please login with username in lowercase");
         }
-        return \StatusValue::newGood();
+        return StatusValue::newGood();
     }
 
     /**
@@ -163,9 +169,9 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     public function testForAccountCreation( $user, $creator, array $reqs ) {
         $req = AuthenticationRequest::getRequestByClass( $reqs, PasswordAuthenticationRequest::class );
         if ( !$req ) {
-            return \StatusValue::newError("no Password Authentication Request found");
+            return StatusValue::newFatal("no Password Authentication Request found");
         }
-        return \StatusValue::newGood();
+        return StatusValue::newGood();
     }
 
     /**
@@ -177,7 +183,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         // find the password auth request
         $auth_req = AuthenticationRequest::getRequestByClass( $reqs, PasswordAuthenticationRequest::class );
         if ( !$auth_req ) {
-            return \StatusValue::newFatal("no Password Authentication Request found");
+            return StatusValue::newFatal("no Password Authentication Request found");
         }
 
         // create an array of properties, if anything is present
@@ -198,7 +204,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
                     self::fnRestAuthGetConnection(), $name, $password, $properties);
             }
             wfDebug("-   END: " . __FUNCTION__ . "\n");
-            return \StatusValue::newGood();
+            return StatusValue::newGood();
         } catch (RestAuthException $e) {
             throw new MWRestAuthError($e);
         }
@@ -210,7 +216,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     public function finishAccountCreation( $user, $creator, AuthenticationResponse $response ) {
         // call sync hook
         self::onLocalUserCreated($user, $autocreate = true);
-        return \StatusValue::newGood();
+        return StatusValue::newGood();
     }
 
     // DEFAULT FUNCTIONS / Maybe linking provider: TODO CHECK
@@ -597,8 +603,8 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
             // continue with regular execution, hook did nothing
             return null;
         }
-		// returning false means hook has been executed and an user has been created.
-		// stop further processing for this hook
+        // returning false means hook has been executed and an user has been created.
+        // stop further processing for this hook
         return false;
     }
 
