@@ -46,13 +46,13 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 	);
 	var $wgRestAuthRefresh = 300;
 
+	private static $conn = null;
+
 	public function __construct() {
 		global $wgRestAuthHost;
 		if (isset($wgRestAuthHost)) {
 			$this->wgRestAuthHost = $wgRestAuthHost;
 		}
-
-		$this->conn = fnRestAuthGetConnection();
 
 		$this->preferenceMapping = array(
 			// NOTE: 'full name' is a predefined property name.
@@ -67,7 +67,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
      */
 	public function testUserExists( $username, $flags = User::READ_NORMAL ) {
         try {
-            RestAuthUser::get($this->conn, $username);
+            RestAuthUser::get(self::fnRestAuthGetConnection(), $username);
             return true;
         } catch (RestAuthResourceNotFound $e) {
             return false;
@@ -94,7 +94,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 			return AuthenticationResponse::newAbstain();
 		}
 
-        $user = new RestAuthUser($this->conn, $req->username);
+        $user = new RestAuthUser(self::fnRestAuthGetConnection(), $req->username);
         try {
             if ($user->verifyPassword($req->password)) {
                 return AuthenticationResponse::newPass();
@@ -125,7 +125,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 			return \StatusValue::newError("this is no password authentication request");
 		}
         try {
-            $user = new RestAuthUser($this->conn, $req->username);
+            $user = new RestAuthUser(self::fnRestAuthGetConnection(), $req->username);
             $user->setPassword($req->password);
             return true;
         } catch (RestAuthException $e) {
@@ -187,10 +187,10 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         try {
             $name = $user->getName();
             if (empty($properties)) {
-                RestAuthUser::create($this->conn, $name, $password);
+                RestAuthUser::create(self::fnRestAuthGetConnection(), $name, $password);
             } else {
                 RestAuthUser::create(
-                    $this->conn, $name, $password, $properties);
+                    self::fnRestAuthGetConnection(), $name, $password, $properties);
             }
             wfDebug("-   END: " . __FUNCTION__ . "\n");
             return \StatusValue::newGood();
@@ -366,12 +366,16 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 	/**
 	* Helper function to get a connection object to the RestAuth service.
 	*/
-	public function fnRestAuthGetConnection() {
+	public static function fnRestAuthGetConnection() {
 		global $wgRestAuthHost, $wgRestAuthService, $wgRestAuthServicePassword;
 		if (! isset($wgRestAuthHost)) $wgRestAuthHost = 'http://localhost';
 
-		return RestAuthConnection::getConnection($wgRestAuthHost,
+		if (self::$conn == null) {
+			self::$conn = RestAuthConnection::getConnection($wgRestAuthHost,
 			$wgRestAuthService, $wgRestAuthServicePassword);
+		}
+
+		return self::$conn;
 	}
 
 	public function continuePrimaryAuthentication( array $reqs ) {
@@ -420,7 +424,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         wfDebug("- START: " . __FUNCTION__ . "($user)\n");
         global $wgRestAuthIgnoredPreferences;
 
-        $raUser = new RestAuthUser($this->conn, $user->getName());
+        $raUser = new RestAuthUser(self::fnRestAuthGetConnection(), $user->getName());
         $raProperties = $raUser->getProperties();
 
         // Properties are collected here and set in one single RestAuth call:
@@ -609,7 +613,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 
         // get remote user:
         global $wgRestAuthIgnoredPreferences, $wgRestAuthGlobalProperties;
-        $ra_user = new RestAuthUser($this->conn, $user->getName());
+        $ra_user = new RestAuthUser(self::fnRestAuthGetConnection(), $user->getName());
 
         // used as a complete list of all options:
         $default_options = User::getDefaultOptions();
@@ -690,7 +694,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         wfDebug("- START: " . __FUNCTION__ . "\n");
         $user->load();
         $local_groups = $user->getGroups();
-        $rest_groups = RestAuthGroup::getAll($this->conn, $user->getName());
+        $rest_groups = RestAuthGroup::getAll(self::fnRestAuthGetConnection(), $user->getName());
         $remote_groups = array();
         foreach ($rest_groups as $rest_group) {
             $remote_groups[] = $rest_group->name;
