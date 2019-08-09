@@ -24,6 +24,7 @@
 		"UserLoggedIn": "MediaWiki\\Auth\\RestAuthPrimaryAuthenticationProvider::fnRestAuthUpdateUser",
 		"UserGroupsChanged": "MediaWiki\\Auth\\RestAuthPrimaryAuthenticationProvider::fnRestAuthUpdateGroups",
 		"UserSaveSettings": "MediaWiki\\Auth\\RestAuthPrimaryAuthenticationProvider::fnRestAuthUserSaveSettings",
+		"ImportHandleUnknownUser": "MediaWiki\\Auth\\RestAuthPrimaryAuthenticationProvider::fnRestAuthImportHandleUnknownUser",
 		"LocalUserCreated": "MediaWiki\\Auth\\RestAuthPrimaryAuthenticationProvider::fnRestAuthLocalUserCreated"
 	},
 	"requires": {

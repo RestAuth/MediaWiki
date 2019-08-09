@@ -582,6 +582,27 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     }
 
     /**
+     * Create a local user on import if the corresponding RestAuth user exists
+     */
+    public function fnRestAuthImportHandleUnknownUser($name) {
+        // returns false if hook created a user
+        // https://www.mediawiki.org/wiki/Manual:Hooks/ImportHandleUnknownUser
+        $ra_user = new RestAuthUser(self::fnRestAuthGetConnection(), $name);
+        if ($ra_user == null) {
+            // continue with regular execution, hook did nothing
+            return null;
+        }
+        $user = User::createNew($name);
+        if ($user === null) {
+            // continue with regular execution, hook did nothing
+            return null;
+        }
+		// returning false means hook has been executed and an user has been created.
+		// stop further processing for this hook
+        return false;
+    }
+
+    /**
      * Initialize a new user. =>Refreshes groups and =>Preferences.
      *
      * This is called when a new user was created ($autocreate=false) or when a
