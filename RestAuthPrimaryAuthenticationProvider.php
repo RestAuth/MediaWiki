@@ -6,6 +6,10 @@ use User;
 require_once('RestAuth/restauth.php');
 require_once('RestAuthError.php');
 
+use RestAuthConnection;
+use RestAuthUser;
+use RestAuthGroup;
+
 /**
  * A primary authentication provider that authenticates the user against a RestAuth instance.
  *
@@ -45,6 +49,8 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 		'email confirmed' => true,
 	);
 	var $wgRestAuthRefresh = 300;
+
+	private static $preferenceMapping = array();
 
 	private static $conn = null;
 
@@ -320,7 +326,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 
 			// Update local database if the last refresh is more than
 			// $wgRestAuthRefresh seconds ago:
-			$update = fnRestAuthUserNeedsRefresh($user);
+			$update = self::fnRestAuthUserNeedsRefresh($user);
 		}
 
 		if ($update) {
