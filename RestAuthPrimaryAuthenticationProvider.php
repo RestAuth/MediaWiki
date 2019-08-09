@@ -17,62 +17,62 @@ use RestAuthGroup;
  * @since 1.27
  */
 class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticationProvider {
-	/* RestAuth variables */
-	private static $wgRestAuthHost = 'localhost';
+    /* RestAuth variables */
+    private static $wgRestAuthHost = 'localhost';
 
-	/**
-	* List of ignored =>preferences.
-	*
-	* This may either be an =>option or a =>setting, exactly as defined in
-	* *MediaWiki*.
-	*/
-	private static $wgRestAuthIgnoredPreferences = array(
-		"RestAuthRefreshTimestamp",
-		"watchlisttoken",
-	);
+    /**
+    * List of ignored =>preferences.
+    *
+    * This may either be an =>option or a =>setting, exactly as defined in
+    * *MediaWiki*.
+    */
+    private static $wgRestAuthIgnoredPreferences = array(
+        "RestAuthRefreshTimestamp",
+        "watchlisttoken",
+    );
 
-	/**
-	* wgRestAuthGlobalProperties defines what =>properties are global.
-	* Non-global properties will be saved to RestAuth with the prefix 'mediawiki '.
-	*
-	* NOTE: The keys defined here are property names *in RestAuth* and not of
-	* MediaWiki options. The key difference is that 'full name' and
-	* 'email confirmed' are standard RestAuth options and are mapped accordingly.
-	*
-	* If any =>options are added here, the name in RestAuth and MediaWiki should be
-	* identical, otherwise the code has to be modified.
-	*/
-	private static $wgRestAuthGlobalProperties = array(
-		'language' => true,
-		'full name' => true,
-		'email' => true,
-		'email confirmed' => true,
-	);
+    /**
+    * wgRestAuthGlobalProperties defines what =>properties are global.
+    * Non-global properties will be saved to RestAuth with the prefix 'mediawiki '.
+    *
+    * NOTE: The keys defined here are property names *in RestAuth* and not of
+    * MediaWiki options. The key difference is that 'full name' and
+    * 'email confirmed' are standard RestAuth options and are mapped accordingly.
+    *
+    * If any =>options are added here, the name in RestAuth and MediaWiki should be
+    * identical, otherwise the code has to be modified.
+    */
+    private static $wgRestAuthGlobalProperties = array(
+        'language' => true,
+        'full name' => true,
+        'email' => true,
+        'email confirmed' => true,
+    );
 
-	private static $wgRestAuthRefresh = 300;
+    private static $wgRestAuthRefresh = 300;
 
-	private static $preferenceMapping = array();
+    private static $preferenceMapping = array();
 
-	private static $conn = null;
+    private static $conn = null;
 
-	public function __construct() {
-		global $wgRestAuthHost;
-		if (isset($wgRestAuthHost)) {
-			self::$wgRestAuthHost = $wgRestAuthHost;
-		}
+    public function __construct() {
+        global $wgRestAuthHost;
+        if (isset($wgRestAuthHost)) {
+            self::$wgRestAuthHost = $wgRestAuthHost;
+        }
 
-		self::$preferenceMapping = array(
-			// NOTE: 'full name' is a predefined property name.
-			'mRealName' => self::raPropertyName('full name'),
-			'email' => self::raPropertyName('email'),
-			// email_confirmed is handled seperately - see below
-		);
-	}
+        self::$preferenceMapping = array(
+            // NOTE: 'full name' is a predefined property name.
+            'mRealName' => self::raPropertyName('full name'),
+            'email' => self::raPropertyName('email'),
+            // email_confirmed is handled seperately - see below
+        );
+    }
 
     /**
      * Verify that a user exists.
      */
-	public function testUserExists( $username, $flags = User::READ_NORMAL ) {
+    public function testUserExists( $username, $flags = User::READ_NORMAL ) {
         try {
             RestAuthUser::get(self::fnRestAuthGetConnection(), $username);
             return true;
@@ -81,25 +81,25 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         } catch (RestAuthException $e) {
             throw new MWRestAuthError($e);
         }
-	}
+    }
 
     /**
      * Check if a username+password pair is a valid login.
      */
-	public function beginPrimaryAuthentication( array $reqs ) {
-		$req = AuthenticationRequest::getRequestByClass( $reqs, PasswordAuthenticationRequest::class );
-		if ( !$req ) {
-			return AuthenticationResponse::newAbstain();
-		}
+    public function beginPrimaryAuthentication( array $reqs ) {
+        $req = AuthenticationRequest::getRequestByClass( $reqs, PasswordAuthenticationRequest::class );
+        if ( !$req ) {
+            return AuthenticationResponse::newAbstain();
+        }
 
-		if ( $req->username === null || $req->password === null ) {
-			return AuthenticationResponse::newAbstain();
-		}
+        if ( $req->username === null || $req->password === null ) {
+            return AuthenticationResponse::newAbstain();
+        }
 
-		$username = User::getCanonicalName( $req->username, 'usable' );
-		if ( $username === false ) {
-			return AuthenticationResponse::newAbstain();
-		}
+        $username = User::getCanonicalName( $req->username, 'usable' );
+        if ( $username === false ) {
+            return AuthenticationResponse::newAbstain();
+        }
 
         $user = new RestAuthUser(self::fnRestAuthGetConnection(), $req->username);
         try {
@@ -111,26 +111,26 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         } catch (RestAuthException $e) {
             throw new MWRestAuthError($e);
         }
-	}
+    }
 
-	/**
-	 * Allow password change
-	 */
-	public function providerAllowsAuthenticationDataChange( AuthenticationRequest $req, $checkData = true ) {
-		$auth_req = AuthenticationRequest::getRequestByClass( array($req), PasswordAuthenticationRequest::class );
-		if ( !$auth_req ) {
-			return \StatusValue::newError("this is no password authentication request");
-		}
-	}
+    /**
+     * Allow password change
+     */
+    public function providerAllowsAuthenticationDataChange( AuthenticationRequest $req, $checkData = true ) {
+        $auth_req = AuthenticationRequest::getRequestByClass( array($req), PasswordAuthenticationRequest::class );
+        if ( !$auth_req ) {
+            return \StatusValue::newError("this is no password authentication request");
+        }
+    }
 
-	/**
-	 * Actually do the password change
-	 */
-	public function providerChangeAuthenticationData( AuthenticationRequest $req ) {
-		$auth_req = AuthenticationRequest::getRequestByClass( array($req), PasswordAuthenticationRequest::class );
-		if ( !$auth_req ) {
-			return \StatusValue::newError("this is no password authentication request");
-		}
+    /**
+     * Actually do the password change
+     */
+    public function providerChangeAuthenticationData( AuthenticationRequest $req ) {
+        $auth_req = AuthenticationRequest::getRequestByClass( array($req), PasswordAuthenticationRequest::class );
+        if ( !$auth_req ) {
+            return \StatusValue::newError("this is no password authentication request");
+        }
         try {
             $user = new RestAuthUser(self::fnRestAuthGetConnection(), $req->username);
             $user->setPassword($req->password);
@@ -138,49 +138,49 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         } catch (RestAuthException $e) {
             throw new MWRestAuthError($e);
         }
-	}
+    }
 
-	/**
-	 * If accounts can be created
-	 */
-	public function accountCreationType() {
-		return self::TYPE_CREATE;
-	}
+    /**
+     * If accounts can be created
+     */
+    public function accountCreationType() {
+        return self::TYPE_CREATE;
+    }
 
-	/**
-	 * first step of account creation: validate the username
-	 */
-	public function testUserForCreation( $user, $autocreate, array $options = [] ) {
-		// TODO: validate the username instead of just rejecting uppercase logins
-		global $wgContLang;
-		if ($wgContLang->lc($user->getName()) != $user->getName()) {
-			return \StatusValue::newFatal("Please login with username in lowercase");
-		}
-		return \StatusValue::newGood();
-	}
+    /**
+     * first step of account creation: validate the username
+     */
+    public function testUserForCreation( $user, $autocreate, array $options = [] ) {
+        // TODO: validate the username instead of just rejecting uppercase logins
+        global $wgContLang;
+        if ($wgContLang->lc($user->getName()) != $user->getName()) {
+            return \StatusValue::newFatal("Please login with username in lowercase");
+        }
+        return \StatusValue::newGood();
+    }
 
-	/**
-	 * second step of account creation: prevalidate the user
-	 */
-	public function testForAccountCreation( $user, $creator, array $reqs ) {
-		$req = AuthenticationRequest::getRequestByClass( $reqs, PasswordAuthenticationRequest::class );
-		if ( !$req ) {
-			return \StatusValue::newError("no Password Authentication Request found");
-		}
-		return \StatusValue::newGood();
-	}
+    /**
+     * second step of account creation: prevalidate the user
+     */
+    public function testForAccountCreation( $user, $creator, array $reqs ) {
+        $req = AuthenticationRequest::getRequestByClass( $reqs, PasswordAuthenticationRequest::class );
+        if ( !$req ) {
+            return \StatusValue::newError("no Password Authentication Request found");
+        }
+        return \StatusValue::newGood();
+    }
 
-	/**
-	 * third step of account creation: create the user
-	 */
-	public function beginPrimaryAccountCreation( $user, $creator, array $reqs ) {
-		wfDebug("- START: " . __FUNCTION__ . "\n");
+    /**
+     * third step of account creation: create the user
+     */
+    public function beginPrimaryAccountCreation( $user, $creator, array $reqs ) {
+        wfDebug("- START: " . __FUNCTION__ . "\n");
 
-		// find the password auth request
-		$auth_req = AuthenticationRequest::getRequestByClass( $reqs, PasswordAuthenticationRequest::class );
-		if ( !$auth_req ) {
-			return \StatusValue::newFatal("no Password Authentication Request found");
-		}
+        // find the password auth request
+        $auth_req = AuthenticationRequest::getRequestByClass( $reqs, PasswordAuthenticationRequest::class );
+        if ( !$auth_req ) {
+            return \StatusValue::newFatal("no Password Authentication Request found");
+        }
 
         // create an array of properties, if anything is present
         $properties = array();
@@ -204,188 +204,188 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         } catch (RestAuthException $e) {
             throw new MWRestAuthError($e);
         }
-	}
+    }
 
-	/**
-	 * fourth step of account creation: user has been added to the db
-	 */
-	public function finishAccountCreation( $user, $creator, AuthenticationResponse $response ) {
-		// call sync hook
-		self::onLocalUserCreated($user, $autocreate = true);
-		return \StatusValue::newGood();
-	}
+    /**
+     * fourth step of account creation: user has been added to the db
+     */
+    public function finishAccountCreation( $user, $creator, AuthenticationResponse $response ) {
+        // call sync hook
+        self::onLocalUserCreated($user, $autocreate = true);
+        return \StatusValue::newGood();
+    }
 
-	// DEFAULT FUNCTIONS / Maybe linking provider: TODO CHECK
-	/**
-	 * @param null|\User $user
-	 * @param AuthenticationResponse $response
-	 */
-	public function postAuthentication( $user, AuthenticationResponse $response ) {
-	}
+    // DEFAULT FUNCTIONS / Maybe linking provider: TODO CHECK
+    /**
+     * @param null|\User $user
+     * @param AuthenticationResponse $response
+     */
+    public function postAuthentication( $user, AuthenticationResponse $response ) {
+    }
 
-	public function testUserCanAuthenticate( $username ) {
-		// Assume it can authenticate if it exists
-		return self::testUserExists( $username );
-	}
+    public function testUserCanAuthenticate( $username ) {
+        // Assume it can authenticate if it exists
+        return self::testUserExists( $username );
+    }
 
-	public function providerNormalizeUsername( $username ) {
-		$name = User::getCanonicalName( $username );
-		return $name === false ? null : $name;
-	}
+    public function providerNormalizeUsername( $username ) {
+        $name = User::getCanonicalName( $username );
+        return $name === false ? null : $name;
+    }
 
-	public function providerRevokeAccessForUser( $username ) {
-		$reqs = self::getAuthenticationRequests(
-			AuthManager::ACTION_REMOVE, [ 'username' => $username ]
-		);
-		foreach ( $reqs as $req ) {
-			$req->username = $username;
-			$req->action = AuthManager::ACTION_REMOVE;
-			self::providerChangeAuthenticationData( $req );
-		}
-	}
+    public function providerRevokeAccessForUser( $username ) {
+        $reqs = self::getAuthenticationRequests(
+            AuthManager::ACTION_REMOVE, [ 'username' => $username ]
+        );
+        foreach ( $reqs as $req ) {
+            $req->username = $username;
+            $req->action = AuthManager::ACTION_REMOVE;
+            self::providerChangeAuthenticationData( $req );
+        }
+    }
 
-	public function providerAllowsPropertyChange( $property ) {
-		return true;
-	}
+    public function providerAllowsPropertyChange( $property ) {
+        return true;
+    }
 
-	public function continuePrimaryAccountCreation( $user, $creator, array $reqs ) {
-		throw new \BadMethodCallException( __METHOD__ . ' is not implemented.' );
-	}
+    public function continuePrimaryAccountCreation( $user, $creator, array $reqs ) {
+        throw new \BadMethodCallException( __METHOD__ . ' is not implemented.' );
+    }
 
-	public function postAccountCreation( $user, $creator, AuthenticationResponse $response ) {
-	}
+    public function postAccountCreation( $user, $creator, AuthenticationResponse $response ) {
+    }
 
-	public function autoCreatedAccount( $user, $source ) {
-	}
+    public function autoCreatedAccount( $user, $source ) {
+    }
 
-	public function beginPrimaryAccountLink( $user, array $reqs ) {
-		if ( self::accountCreationType() === self::TYPE_LINK ) {
-			throw new \BadMethodCallException( __METHOD__ . ' is not implemented.' );
-		} else {
-			throw new \BadMethodCallException(
-				__METHOD__ . ' should not be called on a non-link provider.'
-			);
-		}
-	}
+    public function beginPrimaryAccountLink( $user, array $reqs ) {
+        if ( self::accountCreationType() === self::TYPE_LINK ) {
+            throw new \BadMethodCallException( __METHOD__ . ' is not implemented.' );
+        } else {
+            throw new \BadMethodCallException(
+                __METHOD__ . ' should not be called on a non-link provider.'
+            );
+        }
+    }
 
-	public function continuePrimaryAccountLink( $user, array $reqs ) {
-		throw new \BadMethodCallException( __METHOD__ . ' is not implemented.' );
-	}
+    public function continuePrimaryAccountLink( $user, array $reqs ) {
+        throw new \BadMethodCallException( __METHOD__ . ' is not implemented.' );
+    }
 
-	public function postAccountLink( $user, AuthenticationResponse $response ) {
-	}
+    public function postAccountLink( $user, AuthenticationResponse $response ) {
+    }
 
-	// custom functions
+    // custom functions
 
-	public function getAuthenticationRequests( $action, array $options ) {
-		switch ( $action ) {
-			case AuthManager::ACTION_LOGIN:
-				return [ new PasswordAuthenticationRequest() ];
-			default:
-				return [];
-		}
-	}
+    public function getAuthenticationRequests( $action, array $options ) {
+        switch ( $action ) {
+            case AuthManager::ACTION_LOGIN:
+                return [ new PasswordAuthenticationRequest() ];
+            default:
+                return [];
+        }
+    }
 
-	/*
-	 * *****************************
-	 * Helper functions for RestAuth
-	 * *****************************
-	 */
+    /*
+     * *****************************
+     * Helper functions for RestAuth
+     * *****************************
+     */
 
-	/**
-	* Function to determine if a users groups/properties need to be updated.
-	*/
-	public function fnRestAuthUserNeedsRefresh($user) {
-		$now = time();
-		$timestamp = $user->getIntOption('RestAuthRefreshTimestamp', $now);
-		if ($timestamp + self::$wgRestAuthRefresh < $now) {
-			return true;
-		} else {
-			return false;
-		}
-	}
+    /**
+    * Function to determine if a users groups/properties need to be updated.
+    */
+    public function fnRestAuthUserNeedsRefresh($user) {
+        $now = time();
+        $timestamp = $user->getIntOption('RestAuthRefreshTimestamp', $now);
+        if ($timestamp + self::$wgRestAuthRefresh < $now) {
+            return true;
+        } else {
+            return false;
+        }
+    }
 
-	/**
-	* This function is called upon every pageview and refreshes the local database
-	* cache if the last refresh is more than $RestAuthRefresh seconds ago or we are on
-	* Special:Preferences.
-	*
-	* Please see the documentation for the BeforeInitialize Hook if needed.
-	*/
-	public function fnRestAuthRefreshCurrentUser($title, $article, $output, $user, $request, $mediaWiki) {
-		if (!$user->isLoggedIn()) {
-			return true;
-		}
+    /**
+    * This function is called upon every pageview and refreshes the local database
+    * cache if the last refresh is more than $RestAuthRefresh seconds ago or we are on
+    * Special:Preferences.
+    *
+    * Please see the documentation for the BeforeInitialize Hook if needed.
+    */
+    public function fnRestAuthRefreshCurrentUser($title, $article, $output, $user, $request, $mediaWiki) {
+        if (!$user->isLoggedIn()) {
+            return true;
+        }
 
-		$update = false;
+        $update = false;
 
-		if ($title->isSpecial('Preferences') && $request->getMethod() === 'GET') {
-			$update = true; // update when viewing Special:Preferences
-		} else {
+        if ($title->isSpecial('Preferences') && $request->getMethod() === 'GET') {
+            $update = true; // update when viewing Special:Preferences
+        } else {
 
-			// Update local database if the last refresh is more than
-			// $wgRestAuthRefresh seconds ago:
-			$update = self::fnRestAuthUserNeedsRefresh($user);
-		}
+            // Update local database if the last refresh is more than
+            // $wgRestAuthRefresh seconds ago:
+            $update = self::fnRestAuthUserNeedsRefresh($user);
+        }
 
-		if ($update) {
-			global $wgAuth;
-			$wgAuth->updateUser($user);
-		}
+        if ($update) {
+            global $wgAuth;
+            $wgAuth->updateUser($user);
+        }
 
-		return true;
-	}
+        return true;
+    }
 
-	/**
-	* Called when a bureaucrat adds the user to a group via Special:UserRights.
-	*/
-	public function fnRestAuthUserAddGroup($user, &$group) {
-		$conn = fnRestAuthGetConnection();
-		$ra_group = new RestAuthGroup($conn, $group);
-		try {
-			$ra_group->addUser($user->getName());
-		} catch (RestAuthResourceNotFound $e) {
-			$ra_group = RestAuthGroup::create($conn, $group);
-			$ra_group->addUser($user->getName());
-		} catch (RestAuthException $e) {
-			throw new MWRestAuthError($e);
-		}
-		return true;
-	}
+    /**
+    * Called when a bureaucrat adds the user to a group via Special:UserRights.
+    */
+    public function fnRestAuthUserAddGroup($user, &$group) {
+        $conn = fnRestAuthGetConnection();
+        $ra_group = new RestAuthGroup($conn, $group);
+        try {
+            $ra_group->addUser($user->getName());
+        } catch (RestAuthResourceNotFound $e) {
+            $ra_group = RestAuthGroup::create($conn, $group);
+            $ra_group->addUser($user->getName());
+        } catch (RestAuthException $e) {
+            throw new MWRestAuthError($e);
+        }
+        return true;
+    }
 
-	/**
-	* Called when a bureaucrat removes a group from a user via Special:UserRights.
-	*/
-	public function fnRestAuthUserRemoveGroup($user, &$group) {
-		$conn = fnRestAuthGetConnection();
-		$ra_group = new RestAuthGroup($conn, $group);
-		try {
-			$ra_group->removeUser($user->getName());
-	//TODO: catch 404 if we're out of sync with the RestAuth server
-		} catch (RestAuthException $e) {
-			throw new MWRestAuthError($e);
-		}
-		return true;
-	}
+    /**
+    * Called when a bureaucrat removes a group from a user via Special:UserRights.
+    */
+    public function fnRestAuthUserRemoveGroup($user, &$group) {
+        $conn = fnRestAuthGetConnection();
+        $ra_group = new RestAuthGroup($conn, $group);
+        try {
+            $ra_group->removeUser($user->getName());
+    //TODO: catch 404 if we're out of sync with the RestAuth server
+        } catch (RestAuthException $e) {
+            throw new MWRestAuthError($e);
+        }
+        return true;
+    }
 
-	/**
-	* Helper function to get a connection object to the RestAuth service.
-	*/
-	public static function fnRestAuthGetConnection() {
-		global $wgRestAuthHost, $wgRestAuthService, $wgRestAuthServicePassword;
-		if (! isset($wgRestAuthHost)) $wgRestAuthHost = 'http://localhost';
+    /**
+    * Helper function to get a connection object to the RestAuth service.
+    */
+    public static function fnRestAuthGetConnection() {
+        global $wgRestAuthHost, $wgRestAuthService, $wgRestAuthServicePassword;
+        if (! isset($wgRestAuthHost)) $wgRestAuthHost = 'http://localhost';
 
-		if (self::$conn == null) {
-			self::$conn = RestAuthConnection::getConnection($wgRestAuthHost,
-			$wgRestAuthService, $wgRestAuthServicePassword);
-		}
+        if (self::$conn == null) {
+            self::$conn = RestAuthConnection::getConnection($wgRestAuthHost,
+            $wgRestAuthService, $wgRestAuthServicePassword);
+        }
 
-		return self::$conn;
-	}
+        return self::$conn;
+    }
 
-	public function continuePrimaryAuthentication( array $reqs ) {
-		throw new \BadMethodCallException( __METHOD__ . ' is not implemented.' );
-	}
+    public function continuePrimaryAuthentication( array $reqs ) {
+        throw new \BadMethodCallException( __METHOD__ . ' is not implemented.' );
+    }
 
     /**
      * Called whenever a user logs in, =>refreshes =>preferences and groups.
@@ -400,27 +400,27 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     public function fnRestAuthUpdateUser ($user) {
         wfDebug("- START: " . __FUNCTION__ . "($user)\n");
         # When a user logs in, optionally fill in preferences and such.
-		self::refreshGroups($user);
-		self::refreshPreferences($user);
+        self::refreshGroups($user);
+        self::refreshPreferences($user);
 
         # reload everything
         $user->invalidateCache();
         wfDebug("-   END: " . __FUNCTION__ . "\n");
-	}
+    }
 
-	/**
-	 * Replicate group changes to RestAuth
-	 */
-	public function fnRestAuthUserGroupsChanged($user, $added, $removed, $performer, $reason, $oldUGMs, $newUGMs) {
-		// TODO sync groups
-	}
+    /**
+     * Replicate group changes to RestAuth
+     */
+    public function fnRestAuthUserGroupsChanged($user, $added, $removed, $performer, $reason, $oldUGMs, $newUGMs) {
+        // TODO sync groups
+    }
 
     /**
      * =>Update the external user database with =>preferences.
      *
      * This is called when the user hits 'submit' on Special:Preferences.
-	 */
-	public function fnRestAuthUserSaveSettings($user) {
+     */
+    public function fnRestAuthUserSaveSettings($user) {
         wfDebug("- START: " . __FUNCTION__ . "($user)\n");
 
         $raUser = new RestAuthUser(self::fnRestAuthGetConnection(), $user->getName());
@@ -431,7 +431,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         $raDelProperties = array();
 
         // Handle =>settings.
-		self::updateExternalDBSettings(
+        self::updateExternalDBSettings(
             $user, $raProperties, $raSetProperties, $raDelproperties);
 
         // Handle =>options.
@@ -439,7 +439,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
             if (in_array($key, self::$wgRestAuthIgnoredPreferences)) {
                 continue; // filter ignored options
             }
-			self::_handleUpdateOption($raProperties, $key, $value,
+            self::_handleUpdateOption($raProperties, $key, $value,
                 $raSetProperties, $raDelProperties);
 
         }
@@ -465,7 +465,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
             wfDebug("- EXCEPTION: " . __FUNCTION__ . " - $e\n");
             throw new MWRestAuthError($e);
         }
-	}
+    }
 
     /**
      * Update =>settings (NOT =>options!) to the RestAuth database.
@@ -479,7 +479,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
                 continue; // filter ignored options
             }
 
-			self::_handleUpdateSetting($raProperties, $raProp, $user->$prop,
+            self::_handleUpdateSetting($raProperties, $raProp, $user->$prop,
                 $raSetProperties);
         }
 
@@ -501,7 +501,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         } else {
             $value = '0';
         }
-		self::_handleUpdateSetting($raProperties, $raProp, $value,
+        self::_handleUpdateSetting($raProperties, $raProp, $value,
             $raSetProperties);
 
         wfDebug("-   END: " . __FUNCTION__ . "\n");
@@ -578,7 +578,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
                 $raSetProperties[$raProp] = $value;
             }
         }
-	}
+    }
 
     /**
      * Initialize a new user. =>Refreshes groups and =>Preferences.
@@ -593,8 +593,8 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     public function fnRestAuthLocalUserCreated($user, $autocreate = false) {
         if ($autocreate) {
             // true upon login and user doesn't exist locally
-			self::refreshGroups($user);
-			self::refreshPreferences($user);
+            self::refreshGroups($user);
+            self::refreshPreferences($user);
         }
     }
 
