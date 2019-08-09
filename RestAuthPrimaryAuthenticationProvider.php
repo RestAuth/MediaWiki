@@ -18,7 +18,7 @@ use RestAuthGroup;
  */
 class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticationProvider {
 	/* RestAuth variables */
-	var $wgRestAuthHost = 'localhost';
+	private static $wgRestAuthHost = 'localhost';
 
 	/**
 	* List of ignored =>preferences.
@@ -26,7 +26,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 	* This may either be an =>option or a =>setting, exactly as defined in
 	* *MediaWiki*.
 	*/
-	var $wgRestAuthIgnoredPreferences = array(
+	private static $wgRestAuthIgnoredPreferences = array(
 		"RestAuthRefreshTimestamp",
 		"watchlisttoken",
 	);
@@ -42,13 +42,14 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 	* If any =>options are added here, the name in RestAuth and MediaWiki should be
 	* identical, otherwise the code has to be modified.
 	*/
-	var $wgRestAuthGlobalProperties = array(
+	private static $wgRestAuthGlobalProperties = array(
 		'language' => true,
 		'full name' => true,
 		'email' => true,
 		'email confirmed' => true,
 	);
-	var $wgRestAuthRefresh = 300;
+
+	private static $wgRestAuthRefresh = 300;
 
 	private static $preferenceMapping = array();
 
@@ -295,11 +296,9 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 	* Function to determine if a users groups/properties need to be updated.
 	*/
 	public function fnRestAuthUserNeedsRefresh($user) {
-		global $wgRestAuthRefresh;
-
 		$now = time();
 		$timestamp = $user->getIntOption('RestAuthRefreshTimestamp', $now);
-		if ($timestamp + $wgRestAuthRefresh < $now) {
+		if ($timestamp + self::$wgRestAuthRefresh < $now) {
 			return true;
 		} else {
 			return false;
@@ -423,7 +422,6 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 	 */
 	public function fnRestAuthUserSaveSettings($user) {
         wfDebug("- START: " . __FUNCTION__ . "($user)\n");
-        global $wgRestAuthIgnoredPreferences;
 
         $raUser = new RestAuthUser(self::fnRestAuthGetConnection(), $user->getName());
         $raProperties = $raUser->getProperties();
@@ -438,7 +436,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 
         // Handle =>options.
         foreach($user->getOptions() as $key => $value) {
-            if (in_array($key, $wgRestAuthIgnoredPreferences)) {
+            if (in_array($key, self::$wgRestAuthIgnoredPreferences)) {
                 continue; // filter ignored options
             }
 			self::_handleUpdateOption($raProperties, $key, $value,
@@ -475,11 +473,9 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     private function updateExternalDBSettings ($user, $raProperties,
         &$raSetProperties, &$raDelProperties)
     {
-		global $wgRestAuthIgnoredPreferences;
-
         wfDebug("- START: " . __FUNCTION__ . "\n");
         foreach (self::$preferenceMapping as $prop => $raProp) {
-            if (in_array($prop, $wgRestAuthIgnoredPreferences)) {
+            if (in_array($prop, self::$wgRestAuthIgnoredPreferences)) {
                 continue; // filter ignored options
             }
 
@@ -614,7 +610,6 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         wfDebug("- START: " . __FUNCTION__ . "\n");
 
         // get remote user:
-        global $wgRestAuthIgnoredPreferences, $wgRestAuthGlobalProperties;
         $ra_user = new RestAuthUser(self::fnRestAuthGetConnection(), $user->getName());
 
         // used as a complete list of all options:
@@ -639,9 +634,9 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
             } else {
                 // This =>property is not specific to MediaWiki. Only use
                 // the setting if we find it in $wgRestAuthGlobalProperties.
-                if (is_null($wgRestAuthGlobalProperties) ||
-                    !(array_key_exists($raProp, $wgRestAuthGlobalProperties)
-                      && $wgRestAuthGlobalProperties[$raProp]))
+                if (is_null(self::$wgRestAuthGlobalProperties) ||
+                    !(array_key_exists($raProp, self::$wgRestAuthGlobalProperties)
+                      && self::$wgRestAuthGlobalProperties[$raProp]))
                 {
                     continue;
                 }
@@ -654,32 +649,32 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
                 $pref = $raProp;
             }
 
-            if (!is_null($wgRestAuthIgnoredPreferences) && in_array($pref, $wgRestAuthIgnoredPreferences)) {
+            if (!is_null(self::$wgRestAuthIgnoredPreferences) && in_array($pref, self::$wgRestAuthIgnoredPreferences)) {
                 continue; // filter ignored options
             }
 
             if ($pref == 'full name') {
-                $user->mRealName = $value;
+                $user->setRealName($value);
             } elseif ($pref == 'email') {
-                $user->mEmail = $value;
+                $user->setEmail($value);
             } elseif ($pref == 'email confirmed') {
                 if ($value === '1') {
-                    $user->mEmailConfirmed = true;
+                    $user->confirmEmail();
                 } else {
-                    $user->mEmailConfirmed = false;
+                    $user->invalidateEmail();
                 }
             } elseif (array_key_exists($pref, $default_options)) {
                 // finally use the property from RestAuth, if the
                 // property exists as a default option:
 
 //TODO: Convert values to correct types depending on gettype($default)
-                $user->mOptions[$pref] = $value;
+                $user->setOption($pref, $value);
                 $user->mOptionsOverrides[$pref] = $value;
             }
         }
 
         // update RestAuthRefreshTimestamp:
-        $user->mOptions['RestAuthRefreshTimestamp'] = time();
+        $user->setOption('RestAuthRefreshTimestamp', time());
 
         // begin saving the user to the local database:
         $user->setOption('echo-seen-time', wfTimestamp(TS_MW, time() + $wgClockSkewFudge));
@@ -755,10 +750,8 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
      * Helper function to see if a =>preference is a global preference or not.
      */
     private function raPropertyName($option) {
-        global $wgRestAuthGlobalProperties;
-
-        if (array_key_exists($option, $wgRestAuthGlobalProperties) &&
-                $wgRestAuthGlobalProperties[$option]) {
+        if (array_key_exists($option, self::$wgRestAuthGlobalProperties) &&
+                self::$wgRestAuthGlobalProperties[$option]) {
             return $option;
         } else {
             return 'mediawiki ' . $option;
