@@ -288,7 +288,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 	/**
 	* Function to determine if a users groups/properties need to be updated.
 	*/
-	function fnRestAuthUserNeedsRefresh($user) {
+	public function fnRestAuthUserNeedsRefresh($user) {
 		global $wgRestAuthRefresh;
 
 		$now = time();
@@ -307,7 +307,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 	*
 	* Please see the documentation for the BeforeInitialize Hook if needed.
 	*/
-	function fnRestAuthRefreshCurrentUser($title, $article, $output, $user, $request, $mediaWiki) {
+	public function fnRestAuthRefreshCurrentUser($title, $article, $output, $user, $request, $mediaWiki) {
 		if (!$user->isLoggedIn()) {
 			return true;
 		}
@@ -334,7 +334,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 	/**
 	* Called when a bureaucrat adds the user to a group via Special:UserRights.
 	*/
-	function fnRestAuthUserAddGroup($user, &$group) {
+	public function fnRestAuthUserAddGroup($user, &$group) {
 		$conn = fnRestAuthGetConnection();
 		$ra_group = new RestAuthGroup($conn, $group);
 		try {
@@ -351,7 +351,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 	/**
 	* Called when a bureaucrat removes a group from a user via Special:UserRights.
 	*/
-	function fnRestAuthUserRemoveGroup($user, &$group) {
+	public function fnRestAuthUserRemoveGroup($user, &$group) {
 		$conn = fnRestAuthGetConnection();
 		$ra_group = new RestAuthGroup($conn, $group);
 		try {
@@ -366,7 +366,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 	/**
 	* Helper function to get a connection object to the RestAuth service.
 	*/
-	function fnRestAuthGetConnection() {
+	public function fnRestAuthGetConnection() {
 		global $wgRestAuthHost, $wgRestAuthService, $wgRestAuthServicePassword;
 		if (! isset($wgRestAuthHost)) $wgRestAuthHost = 'http://localhost';
 
