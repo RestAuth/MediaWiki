@@ -51,7 +51,12 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 
     private static $wgRestAuthRefresh = 300;
 
-    private static $preferenceMapping = array();
+    private static $preferenceMapping = array(
+        // NOTE: 'full name' is a predefined property name.
+        'mRealName' => 'full name',
+        'email' => 'email',
+        // email_confirmed is handled seperately - see below
+    );
 
     private static $conn = null;
 
@@ -60,13 +65,6 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         if (isset($wgRestAuthHost)) {
             self::$wgRestAuthHost = $wgRestAuthHost;
         }
-
-        self::$preferenceMapping = array(
-            // NOTE: 'full name' is a predefined property name.
-            'mRealName' => self::raPropertyName('full name'),
-            'email' => self::raPropertyName('email'),
-            // email_confirmed is handled seperately - see below
-        );
     }
 
     /**
@@ -275,6 +273,10 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     public function postAccountLink( $user, AuthenticationResponse $response ) {
     }
 
+    public function continuePrimaryAuthentication( array $reqs ) {
+        throw new \BadMethodCallException( __METHOD__ . ' is not implemented.' );
+    }
+
     // custom functions
 
     public function getAuthenticationRequests( $action, array $options ) {
@@ -361,8 +363,8 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         $ra_group = new RestAuthGroup($conn, $group);
         try {
             $ra_group->removeUser($user->getName());
-    //TODO: catch 404 if we're out of sync with the RestAuth server
         } catch (RestAuthException $e) {
+            //TODO: catch 404 if we're out of sync with the RestAuth server
             throw new MWRestAuthError($e);
         }
         return true;
@@ -381,10 +383,6 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         }
 
         return self::$conn;
-    }
-
-    public function continuePrimaryAuthentication( array $reqs ) {
-        throw new \BadMethodCallException( __METHOD__ . ' is not implemented.' );
     }
 
     /**
@@ -431,8 +429,8 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         $raDelProperties = array();
 
         // Handle =>settings.
-        self::updateExternalDBSettings(
-            $user, $raProperties, $raSetProperties, $raDelproperties);
+        self::updateExternalDBSettings( $user, $raProperties, $raSetProperties,
+            $raDelproperties);
 
         // Handle =>options.
         foreach($user->getOptions() as $key => $value) {
@@ -441,7 +439,6 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
             }
             self::_handleUpdateOption($raProperties, $key, $value,
                 $raSetProperties, $raDelProperties);
-
         }
 
         try {
@@ -477,10 +474,16 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         foreach (self::$preferenceMapping as $prop => $raProp) {
             if (in_array($prop, self::$wgRestAuthIgnoredPreferences)) {
                 continue; // filter ignored options
-            }
+        }
 
-            self::_handleUpdateSetting($raProperties, $raProp, $user->$prop,
-                $raSetProperties);
+        // hardcode email, as this is neither setting nor option
+        $value = $user->$prop;
+        if ($raProp == "email") {
+            $value = $user->getEmail();
+        }
+
+        self::_handleUpdateSetting($raProperties, $raProp, $value,
+            $raSetProperties);
         }
 
         // email confirmed is handled seperately, because locally its a boolean
@@ -494,9 +497,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
             $raProp = 'email confirmed';
         }
 
-        // boolean condition copied from includes/User.php:2825 (version 1.19.2)
-        $dbw = wfGetDB(DB_MASTER);
-        if ($dbw->timestampOrNull($user->mEmailAuthenticated)) {
+        if ($user->isEmailConfirmed()) {
             $value = '1';
         } else {
             $value = '0';
@@ -510,7 +511,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     private function _handleUpdateSetting($raProperties, $raProp, $value,
         &$raSetProperties)
     {
-//TODO: Normalize value
+        //TODO: Normalize value
         if (array_key_exists($raProp, $raProperties)) {
             // setting already in RestAuth
             if ($raProperties[$raProp] != $value) {
@@ -749,7 +750,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     /**
      * Helper function to see if a =>preference is a global preference or not.
      */
-    private function raPropertyName($option) {
+    private static function raPropertyName($option) {
         if (array_key_exists($option, self::$wgRestAuthGlobalProperties) &&
                 self::$wgRestAuthGlobalProperties[$option]) {
             return $option;
