@@ -14,9 +14,7 @@ require_once('RestAuthError.php');
  */
 class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticationProvider {
 	/* RestAuth variables */
-
-	// default settings;
-	if (! isset($wgRestAuthHost)) $wgRestAuthHost = 'localhost';
+	var $wgRestAuthHost = 'localhost';
 
 	/**
 	* List of ignored =>preferences.
@@ -24,7 +22,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 	* This may either be an =>option or a =>setting, exactly as defined in
 	* *MediaWiki*.
 	*/
-	$wgRestAuthIgnoredPreferences = array(
+	var $wgRestAuthIgnoredPreferences = array(
 		"RestAuthRefreshTimestamp",
 		"watchlisttoken",
 	);
@@ -40,15 +38,20 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 	* If any =>options are added here, the name in RestAuth and MediaWiki should be
 	* identical, otherwise the code has to be modified.
 	*/
-	$wgRestAuthGlobalProperties = array(
+	var $wgRestAuthGlobalProperties = array(
 		'language' => true,
 		'full name' => true,
 		'email' => true,
 		'email confirmed' => true,
 	);
-	$wgRestAuthRefresh = 300;
+	var $wgRestAuthRefresh = 300;
 
 	public function __construct() {
+		global $wgRestAuthHost;
+		if (isset($wgRestAuthHost)) {
+			$this->wgRestAuthHost = $wgRestAuthHost;
+		}
+
 		$this->conn = fnRestAuthGetConnection();
 
 		$this->preferenceMapping = array(
@@ -56,7 +59,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 			'mRealName' => $this->raPropertyName('full name'),
 			'email' => $this->raPropertyName('email'),
 			// email_confirmed is handled seperately - see below
-		)
+		);
 	}
 
     /**
@@ -304,7 +307,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 	*
 	* Please see the documentation for the BeforeInitialize Hook if needed.
 	*/
-	function fnRestAuthRefreshCurrentUser($title, $article, $output, $user, $request, $this) {
+	function fnRestAuthRefreshCurrentUser($title, $article, $output, $user, $request, $mediaWiki) {
 		if (!$user->isLoggedIn()) {
 			return true;
 		}
