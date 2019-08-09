@@ -51,10 +51,10 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 	public function __construct() {
 		global $wgRestAuthHost;
 		if (isset($wgRestAuthHost)) {
-			self::wgRestAuthHost = $wgRestAuthHost;
+			self::$wgRestAuthHost = $wgRestAuthHost;
 		}
 
-		self::preferenceMapping = array(
+		self::$preferenceMapping = array(
 			// NOTE: 'full name' is a predefined property name.
 			'mRealName' => self::raPropertyName('full name'),
 			'email' => self::raPropertyName('email'),
@@ -472,7 +472,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 		global $wgRestAuthIgnoredPreferences;
 
         wfDebug("- START: " . __FUNCTION__ . "\n");
-        foreach (self::preferenceMapping as $prop => $raProp) {
+        foreach (self::$preferenceMapping as $prop => $raProp) {
             if (in_array($prop, $wgRestAuthIgnoredPreferences)) {
                 continue; // filter ignored options
             }
@@ -486,7 +486,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         // are always strings).
 
         // 'email confirmed' is prefixed if 'email' is prefixed.
-        if (strpos(self::preferenceMapping['email'], 'mediawiki ') === 0) {
+        if (strpos(self::$preferenceMapping['email'], 'mediawiki ') === 0) {
             $raProp = 'mediawiki email confirmed';
         } else {
             $raProp = 'email confirmed';
