@@ -18,13 +18,13 @@
 		]
 	},
 	"Hooks": {
-		"BeforeInitialize": "RestAuthPrimaryAuthenticationProvider::fnRestAuthRefreshCurrentUser",
-		"UserAddGroup": "RestAuthPrimaryAuthenticationProvider::fnRestAuthAddGroup",
-		"UserRemoveGroup": "RestAuthPrimaryAuthenticationProvider::fnRestAuthRemoveGroup",
-		"UserLoggedIn": "RestAuthPrimaryAuthenticationProvider::fnRestAuthUpdateUser",
-		"UserGroupsChanged": "RestAuthPrimaryAuthenticationProvider::fnRestAuthUpdateGroups",
-		"UserSaveSettings": "RestAuthPrimaryAuthenticationProvider::fnRestAuthUserSaveSettings",
-		"LocalUserCreated": "RestAuthPrimaryAuthenticationProvider::fnRestAuthLocalUserCreated"
+		"BeforeInitialize": "MediaWiki\\Auth\\RestAuthPrimaryAuthenticationProvider::fnRestAuthRefreshCurrentUser",
+		"UserAddGroup": "MediaWiki\\Auth\\RestAuthPrimaryAuthenticationProvider::fnRestAuthAddGroup",
+		"UserRemoveGroup": "MediaWiki\\Auth\\RestAuthPrimaryAuthenticationProvider::fnRestAuthRemoveGroup",
+		"UserLoggedIn": "MediaWiki\\Auth\\RestAuthPrimaryAuthenticationProvider::fnRestAuthUpdateUser",
+		"UserGroupsChanged": "MediaWiki\\Auth\\RestAuthPrimaryAuthenticationProvider::fnRestAuthUpdateGroups",
+		"UserSaveSettings": "MediaWiki\\Auth\\RestAuthPrimaryAuthenticationProvider::fnRestAuthUserSaveSettings",
+		"LocalUserCreated": "MediaWiki\\Auth\\RestAuthPrimaryAuthenticationProvider::fnRestAuthLocalUserCreated"
 	},
 	"requires": {
 		"MediaWiki": ">= 1.31.0"
