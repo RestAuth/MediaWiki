@@ -429,7 +429,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 
         // Handle =>settings.
         $this->updateExternalDBSettings(
-            $raProperties, $raSetProperties, $raDelproperties);
+            $user, $raProperties, $raSetProperties, $raDelproperties);
 
         // Handle =>options.
         foreach($user->getOptions() as $key => $value) {
@@ -467,7 +467,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     /**
      * Update =>settings (NOT =>options!) to the RestAuth database.
      */
-    private function updateExternalDBSettings ($raProperties,
+    private function updateExternalDBSettings ($user, $raProperties,
         &$raSetProperties, &$raDelProperties)
     {
 		global $wgRestAuthIgnoredPreferences;
