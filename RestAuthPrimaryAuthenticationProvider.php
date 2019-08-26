@@ -348,7 +348,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     * Called when a bureaucrat adds the user to a group via Special:UserRights.
     */
     public function fnRestAuthUserAddGroup($user, &$group) {
-        $conn = fnRestAuthGetConnection();
+        $conn = self::fnRestAuthGetConnection();
         $ra_group = new RestAuthGroup($conn, $group);
         try {
             $ra_group->addUser($user->getName());
@@ -365,7 +365,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     * Called when a bureaucrat removes a group from a user via Special:UserRights.
     */
     public function fnRestAuthUserRemoveGroup($user, &$group) {
-        $conn = fnRestAuthGetConnection();
+        $conn = self::fnRestAuthGetConnection();
         $ra_group = new RestAuthGroup($conn, $group);
         try {
             $ra_group->removeUser($user->getName());
