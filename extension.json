@@ -27,10 +27,10 @@
 	},
 	"Hooks": {
 		"BeforeInitialize": "MediaWiki\\Auth\\RestAuthPrimaryAuthenticationProvider::fnRestAuthRefreshCurrentUser",
-		"UserAddGroup": "MediaWiki\\Auth\\RestAuthPrimaryAuthenticationProvider::fnRestAuthAddGroup",
-		"UserRemoveGroup": "MediaWiki\\Auth\\RestAuthPrimaryAuthenticationProvider::fnRestAuthRemoveGroup",
+		"UserAddGroup": "MediaWiki\\Auth\\RestAuthPrimaryAuthenticationProvider::fnRestAuthUserAddGroup",
+		"UserRemoveGroup": "MediaWiki\\Auth\\RestAuthPrimaryAuthenticationProvider::fnRestAuthUserRemoveGroup",
 		"UserLoggedIn": "MediaWiki\\Auth\\RestAuthPrimaryAuthenticationProvider::fnRestAuthUpdateUser",
-		"UserGroupsChanged": "MediaWiki\\Auth\\RestAuthPrimaryAuthenticationProvider::fnRestAuthUpdateGroups",
+		"UserGroupsChanged": "MediaWiki\\Auth\\RestAuthPrimaryAuthenticationProvider::fnRestAuthUserGroupsChanged",
 		"UserSaveSettings": "MediaWiki\\Auth\\RestAuthPrimaryAuthenticationProvider::fnRestAuthUserSaveSettings",
 		"ImportHandleUnknownUser": "MediaWiki\\Auth\\RestAuthPrimaryAuthenticationProvider::fnRestAuthImportHandleUnknownUser",
 		"LocalUserCreated": "MediaWiki\\Auth\\RestAuthPrimaryAuthenticationProvider::fnRestAuthLocalUserCreated"
