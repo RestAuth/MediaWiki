@@ -337,8 +337,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         }
 
         if ($update) {
-            global $wgAuth;
-            $wgAuth->updateUser($user);
+            self::fnRestAuthUpdateUser($user);
         }
 
         return true;
