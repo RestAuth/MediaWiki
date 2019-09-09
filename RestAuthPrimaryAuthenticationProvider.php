@@ -156,7 +156,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
      */
     public function testUserForCreation( $user, $autocreate, array $options = [] ) {
         global $wgContLang;
-        if ($wgContLang->ucFirst($user->getName()) != $user->getName()) {
+        if ($wgContLang->ucFirst($wgContLang->lc($user->getName())) != $user->getName()) {
             return StatusValue::newFatal("Please login with username in lowercase");
         }
         return StatusValue::newGood();
