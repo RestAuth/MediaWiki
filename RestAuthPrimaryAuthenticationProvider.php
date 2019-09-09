@@ -155,9 +155,8 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
      * first step of account creation: validate the username
      */
     public function testUserForCreation( $user, $autocreate, array $options = [] ) {
-        // TODO: validate the username instead of just rejecting uppercase logins
         global $wgContLang;
-        if ($wgContLang->lc($user->getName()) != $user->getName()) {
+        if ($wgContLang->ucFirst($user->getName()) != $user->getName()) {
             return StatusValue::newFatal("Please login with username in lowercase");
         }
         return StatusValue::newGood();
