@@ -481,9 +481,11 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         }
 
         // hardcode email, as this is neither setting nor option
-        $value = $user->$prop;
+        $value = null;
         if ($raProp == "email") {
             $value = $user->getEmail();
+        } else {
+            $value = $user->$prop;
         }
 
         self::_handleUpdateSetting($raProperties, $raProp, $value,
