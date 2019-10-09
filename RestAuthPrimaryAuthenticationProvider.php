@@ -12,6 +12,9 @@ require_once('RestAuthError.php');
 use RestAuthConnection;
 use RestAuthUser;
 use RestAuthGroup;
+use RestAuthResourceNotFound;
+use RestAuthException;
+use MWRestAuthError;
 
 /**
  * A primary authentication provider that authenticates the user against a RestAuth instance.
@@ -177,16 +180,16 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
      * third step of account creation: create the user
      */
     public function beginPrimaryAccountCreation( $user, $creator, array $reqs ) {
-        wfDebug("- START: " . __FUNCTION__ . "\n");
-
         // find the password auth request
         $auth_req = AuthenticationRequest::getRequestByClass( $reqs, PasswordAuthenticationRequest::class );
         if ( !$auth_req ) {
-            return StatusValue::newFatal("no Password Authentication Request found");
-        }
+            return AuthenticationResponse::newFail("no Password Authentication Request found");
+	}
 
         // create an array of properties, if anything is present
         $properties = array();
+        $email = $user->getEmail();
+        $realname = $user->getRealName();
         if ($email) {
             $properties['email'] = $email;
         }
@@ -195,15 +198,14 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         }
 
         try {
-            $name = $user->getName();
+            $name = $auth_req->username;
             if (empty($properties)) {
-                RestAuthUser::create(self::fnRestAuthGetConnection(), $name, $password);
+                RestAuthUser::create(self::fnRestAuthGetConnection(), $name, $auth_req->password);
             } else {
                 RestAuthUser::create(
-                    self::fnRestAuthGetConnection(), $name, $password, $properties);
+                    self::fnRestAuthGetConnection(), $name, $auth_req->password, $properties);
             }
-            wfDebug("-   END: " . __FUNCTION__ . "\n");
-            return StatusValue::newGood();
+            return AuthenticationResponse::newPass();
         } catch (RestAuthException $e) {
             throw new MWRestAuthError($e);
         }
@@ -214,7 +216,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
      */
     public function finishAccountCreation( $user, $creator, AuthenticationResponse $response ) {
         // call sync hook
-        self::onLocalUserCreated($user, $autocreate = true);
+        self::fnRestAuthLocalUserCreated($user, $autocreate = true);
         return StatusValue::newGood();
     }
 
@@ -399,15 +401,13 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
      * BeforeInitialize-Hook), if the user views Special:Preferences or
      * $wgRestAuthRefresh seconds have passed since the last =>refresh.
      */
-    public function fnRestAuthUpdateUser ($user) {
-        wfDebug("- START: " . __FUNCTION__ . "($user)\n");
+    public static function fnRestAuthUpdateUser ($user) {
         # When a user logs in, optionally fill in preferences and such.
         self::refreshGroups($user);
         self::refreshPreferences($user);
 
         # reload everything
         $user->invalidateCache();
-        wfDebug("-   END: " . __FUNCTION__ . "\n");
     }
 
     /**
@@ -422,7 +422,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
      *
      * This is called when the user hits 'submit' on Special:Preferences.
      */
-    public function fnRestAuthUserSaveSettings($user) {
+    public static function fnRestAuthUserSaveSettings($user) {
         wfDebug("- START: " . __FUNCTION__ . "($user)\n");
 
         $raUser = new RestAuthUser(self::fnRestAuthGetConnection(), $user->getName());
@@ -471,7 +471,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     /**
      * Update =>settings (NOT =>options!) to the RestAuth database.
      */
-    private function updateExternalDBSettings ($user, $raProperties,
+    private static function updateExternalDBSettings ($user, $raProperties,
         &$raSetProperties, &$raDelProperties)
     {
         wfDebug("- START: " . __FUNCTION__ . "\n");
@@ -514,7 +514,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         wfDebug("-   END: " . __FUNCTION__ . "\n");
     }
 
-    private function _handleUpdateSetting($raProperties, $raProp, $value,
+    private static function _handleUpdateSetting($raProperties, $raProp, $value,
         &$raSetProperties)
     {
         //TODO: Normalize value
@@ -529,7 +529,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         }
     }
 
-    private function _handleUpdateOption($raProperties, $option, $value,
+    private static function _handleUpdateOption($raProperties, $option, $value,
             &$raSetProperties, &$raDelProperties)
     {
         $default = User::getDefaultOption($option);
@@ -618,7 +618,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
      * totally new user (to RestAuth AND MediaWiki), there shouldn't be any
      * data in RestAuth.
      */
-    public function fnRestAuthLocalUserCreated($user, $autocreate = false) {
+    public static function fnRestAuthLocalUserCreated($user, $autocreate = false) {
         if ($autocreate) {
             // true upon login and user doesn't exist locally
             self::refreshGroups($user);
@@ -629,7 +629,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     /**
      * =>Refresh =>preferences (=>settings AND =>options!) from RestAuth.
      */
-    public function refreshPreferences(&$user) {
+    public static function refreshPreferences(&$user) {
         global $wgClockSkewFudge;
         // initialize local user:
         $user->load();
@@ -715,7 +715,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     /**
       * Synchronize the local group database with the remote database.
       */
-    public function refreshGroups(&$user) {
+    public static function refreshGroups(&$user) {
         wfDebug("- START: " . __FUNCTION__ . "\n");
         $user->load();
         $local_groups = $user->getGroups();
