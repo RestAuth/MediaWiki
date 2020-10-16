@@ -6,6 +6,8 @@ use User;
 use StatusValue;
 use Message;
 
+use MediaWiki\MediaWikiServices;
+
 require_once('RestAuth/restauth.php');
 require_once('RestAuthError.php');
 
@@ -184,7 +186,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         $auth_req = AuthenticationRequest::getRequestByClass( $reqs, PasswordAuthenticationRequest::class );
         if ( !$auth_req ) {
             return AuthenticationResponse::newFail("no Password Authentication Request found");
-	}
+        }
 
         // create an array of properties, if anything is present
         $properties = array();
@@ -771,7 +773,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 
         # reload cache
         $user->getGroups();
-        $user->mRights = User::getGroupPermissions($user->getEffectiveGroups(true));
+        MediaWikiServices::getInstance()->getPermissionManager()->getUserPermissions($user);
         wfDebug("-   END: " . __FUNCTION__ . "\n");
     }
     /**
