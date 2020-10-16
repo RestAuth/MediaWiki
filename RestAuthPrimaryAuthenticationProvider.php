@@ -350,6 +350,10 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     * Called when a bureaucrat adds the user to a group via Special:UserRights.
     */
     public function fnRestAuthUserAddGroup($user, &$group) {
+        if ($user->isSystemUser()) {
+            return true;
+        }
+
         $conn = self::fnRestAuthGetConnection();
         $ra_group = new RestAuthGroup($conn, $group);
         try {
