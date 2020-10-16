@@ -427,6 +427,10 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     public static function fnRestAuthUserSaveSettings($user) {
         wfDebug("- START: " . __FUNCTION__ . "($user)\n");
 
+        if ($user->isSystemUser()) {
+            return true;
+        }
+
         $raUser = new RestAuthUser(self::fnRestAuthGetConnection(), $user->getName());
         $raProperties = $raUser->getProperties();
 
@@ -477,6 +481,11 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         &$raSetProperties, &$raDelProperties)
     {
         wfDebug("- START: " . __FUNCTION__ . "\n");
+
+        if ($user->isSystemUser()) {
+            return true;
+        }
+
         foreach (self::$preferenceMapping as $prop => $raProp) {
             if (in_array($prop, self::$wgRestAuthIgnoredPreferences)) {
                 continue; // filter ignored options
@@ -621,6 +630,10 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
      * data in RestAuth.
      */
     public static function fnRestAuthLocalUserCreated($user, $autocreate = false) {
+        if ($user->isSystemUser()) {
+            return;
+        }
+
         if ($autocreate) {
             // true upon login and user doesn't exist locally
             self::refreshGroups($user);
