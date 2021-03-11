@@ -127,7 +127,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     public function providerAllowsAuthenticationDataChange( AuthenticationRequest $req, $checkData = true ) {
         $auth_req = AuthenticationRequest::getRequestByClass( array($req), PasswordAuthenticationRequest::class );
         $temp_auth_req = AuthenticationRequest::getRequestByClass( array($req), TemporaryPasswordAuthenticationRequest::class );
-        if ( $auth_req ) {
+        if ( $auth_req || $temp_auth_req ) {
             return StatusValue::newGood();
         }
         return StatusValue::newFatal("this is no password authentication request (".get_class($req).") - perm");
@@ -147,6 +147,8 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
             } catch (RestAuthException $e) {
                 throw new MWRestAuthError($e);
             }
+        } else if ( $temp_auth_req ) {
+            return StatusValue::newGood( 'ignored' );
         }
         return StatusValue::newFatal("this is no password authentication request (".get_class($req).") - action");
     }
