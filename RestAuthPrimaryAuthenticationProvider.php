@@ -126,10 +126,11 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
      */
     public function providerAllowsAuthenticationDataChange( AuthenticationRequest $req, $checkData = true ) {
         $auth_req = AuthenticationRequest::getRequestByClass( array($req), PasswordAuthenticationRequest::class );
-        if ( !$auth_req ) {
-            return StatusValue::newFatal("this is no password authentication request");
-    }
-    return StatusValue::newGood();
+        $temp_auth_req = AuthenticationRequest::getRequestByClass( array($req), TemporaryPasswordAuthenticationRequest::class );
+        if ( $auth_req ) {
+            return StatusValue::newGood();
+        }
+        return StatusValue::newFatal("this is no password authentication request (".get_class($req).") - perm");
     }
 
     /**
@@ -137,16 +138,17 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
      */
     public function providerChangeAuthenticationData( AuthenticationRequest $req ) {
         $auth_req = AuthenticationRequest::getRequestByClass( array($req), PasswordAuthenticationRequest::class );
-        if ( !$auth_req ) {
-            return StatusValue::newFatal("this is no password authentication request");
+        $temp_auth_req = AuthenticationRequest::getRequestByClass( array($req), TemporaryPasswordAuthenticationRequest::class );
+        if ( $auth_req ) {
+            try {
+                $user = new RestAuthUser(self::fnRestAuthGetConnection(), $req->username);
+                $user->setPassword($req->password);
+                return true;
+            } catch (RestAuthException $e) {
+                throw new MWRestAuthError($e);
+            }
         }
-        try {
-            $user = new RestAuthUser(self::fnRestAuthGetConnection(), $req->username);
-            $user->setPassword($req->password);
-            return true;
-        } catch (RestAuthException $e) {
-            throw new MWRestAuthError($e);
-        }
+        return StatusValue::newFatal("this is no password authentication request (".get_class($req).") - action");
     }
 
     /**
