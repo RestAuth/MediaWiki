@@ -176,10 +176,15 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
      */
     public function testForAccountCreation( $user, $creator, array $reqs ) {
         $req = AuthenticationRequest::getRequestByClass( $reqs, PasswordAuthenticationRequest::class );
-        if ( !$req ) {
-            return StatusValue::newFatal("no Password Authentication Request found");
+        if ( $req ) {
+            return StatusValue::newGood();
         }
-        return StatusValue::newGood();
+        $temp_req = AuthenticationRequest::getRequestByClass( $reqs, TemporaryPasswordAuthenticationRequest::class );
+        if ( $temp_req ){
+            return StatusValue::newGood();
+        }
+
+        return StatusValue::newFatal("no Password Authentication Request found");
     }
 
     /**
@@ -188,8 +193,14 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     public function beginPrimaryAccountCreation( $user, $creator, array $reqs ) {
         // find the password auth request
         $auth_req = AuthenticationRequest::getRequestByClass( $reqs, PasswordAuthenticationRequest::class );
-        if ( !$auth_req ) {
+        $temp_auth_req = AuthenticationRequest::getRequestByClass( $reqs, TemporaryPasswordAuthenticationRequest::class );
+
+        if ( !$auth_req && !$temp_auth_req ) {
             return AuthenticationResponse::newFail("no Password Authentication Request found");
+        }
+
+        if ( $temp_auth_req ) {
+            $auth_req = $temp_auth_req;
         }
 
         // create an array of properties, if anything is present
@@ -214,6 +225,10 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
             return AuthenticationResponse::newPass();
         } catch (RestAuthException $e) {
             throw new MWRestAuthError($e);
+        }
+
+        if ( $temp_auth_req ) {
+            return AuthenticationResponse::newAbstain();
         }
     }
 

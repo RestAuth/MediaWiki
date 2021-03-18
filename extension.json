@@ -21,7 +21,7 @@
 		"primaryauth": {
 			"MyPreAuthenticationProvider": {
 				"class": "MediaWiki\\Auth\\RestAuthPrimaryAuthenticationProvider",
-				"sort": 50
+				"sort": -1
 			}
 		}
 	},
