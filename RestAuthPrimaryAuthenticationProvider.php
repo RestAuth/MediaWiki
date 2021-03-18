@@ -114,7 +114,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
                 $user_cleaned = $wgContLang->ucFirst($wgContLang->lc($req->username));
                 return AuthenticationResponse::newPass($user_cleaned);
             } else {
-                return AuthenticationResponse::newFail(new Message("Login failed"));
+                return AuthenticationResponse::newAbstain();
             }
         } catch (RestAuthException $e) {
             throw new MWRestAuthError($e);
@@ -216,20 +216,27 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
 
         try {
             $name = $auth_req->username;
+            if ( $temp_auth_req ) {
+                $password = $auth_req->password.".invalid";
+            } else {
+                $password = $auth_req->password;
+            }
             if (empty($properties)) {
-                RestAuthUser::create(self::fnRestAuthGetConnection(), $name, $auth_req->password);
+                RestAuthUser::create(self::fnRestAuthGetConnection(), $name, $password);
             } else {
                 RestAuthUser::create(
-                    self::fnRestAuthGetConnection(), $name, $auth_req->password, $properties);
+                    self::fnRestAuthGetConnection(), $name, $password, $properties);
             }
+
+            if ( $temp_auth_req ) {
+                return AuthenticationResponse::newAbstain();
+            }
+
             return AuthenticationResponse::newPass();
         } catch (RestAuthException $e) {
             throw new MWRestAuthError($e);
         }
 
-        if ( $temp_auth_req ) {
-            return AuthenticationResponse::newAbstain();
-        }
     }
 
     /**
