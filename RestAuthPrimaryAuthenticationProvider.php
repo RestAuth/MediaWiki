@@ -93,7 +93,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
      * Check if a username+password pair is a valid login.
      */
     public function beginPrimaryAuthentication( array $reqs ) {
-        global $wgContLang;
+        global $wgLang;
         $req = AuthenticationRequest::getRequestByClass( $reqs, PasswordAuthenticationRequest::class );
         if ( !$req ) {
             return AuthenticationResponse::newAbstain();
@@ -111,7 +111,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         $user = new RestAuthUser(self::fnRestAuthGetConnection(), $req->username);
         try {
             if ($user->verifyPassword($req->password)) {
-                $user_cleaned = $wgContLang->ucFirst($wgContLang->lc($req->username));
+                $user_cleaned = $wgLang->ucFirst($wgLang->lc($req->username));
                 return AuthenticationResponse::newPass($user_cleaned);
             } else {
                 return AuthenticationResponse::newAbstain();
@@ -164,8 +164,8 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
      * first step of account creation: validate the username
      */
     public function testUserForCreation( $user, $autocreate, array $options = [] ) {
-        global $wgContLang;
-        if ($wgContLang->ucFirst($wgContLang->lc($user->getName())) != $user->getName()) {
+        global $wgLang;
+        if ($wgLang->ucFirst($wgLang->lc($user->getName())) != $user->getName()) {
             return StatusValue::newFatal("Please login with username in lowercase");
         }
         return StatusValue::newGood();
