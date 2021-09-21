@@ -2,6 +2,7 @@
 namespace MediaWiki\Auth;
 
 use User;
+use UserOptionsLookup;
 
 use StatusValue;
 use Message;
@@ -573,7 +574,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     private static function _handleUpdateOption($raProperties, $option, $value,
             &$raSetProperties, &$raDelProperties)
     {
-        $default = User::getDefaultOption($option);
+        $default = UserOptionsLookup::getDefaultOption($option);
         $raProp = self::raPropertyName($option);
 
         // normalize default-value:
@@ -686,7 +687,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         $ra_user = new RestAuthUser(self::fnRestAuthGetConnection(), $user->getName());
 
         // used as a complete list of all options:
-        $default_options = User::getDefaultOptions();
+        $default_options = UserOptionsLookup::getDefaultOptions();
 
         // get all options from the RestAuth service
         try {
