@@ -333,7 +333,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     /**
     * Function to determine if a users groups/properties need to be updated.
     */
-    public function fnRestAuthUserNeedsRefresh($user) {
+    public static function fnRestAuthUserNeedsRefresh($user) {
         $now = time();
         $timestamp = $user->getIntOption('RestAuthRefreshTimestamp', $now);
         if ($timestamp + self::$wgRestAuthRefresh < $now) {
