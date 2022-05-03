@@ -351,7 +351,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     * Please see the documentation for the BeforeInitialize Hook if needed.
     */
     public static function fnRestAuthRefreshCurrentUser($title, $article, $output, $user, $request, $mediaWiki) {
-        if (!$user->isLoggedIn()) {
+        if (!$user->isRegistered()) {
             return true;
         }
 
