@@ -334,7 +334,8 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     */
     public static function fnRestAuthUserNeedsRefresh($user) {
         $now = time();
-        $timestamp = $user->getIntOption('RestAuthRefreshTimestamp', $now);
+        $userOptionsLookup = MediaWikiServices::getInstance()->getUserOptionsLookup();                                                                              
+        $timestamp = $userOptionsLookup->getIntOption($user, 'RestAuthRefreshTimestamp', $now);                                                                     
         if ($timestamp + self::$wgRestAuthRefresh < $now) {
             return true;
         } else {
