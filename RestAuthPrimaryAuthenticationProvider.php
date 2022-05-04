@@ -334,8 +334,8 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     */
     public static function fnRestAuthUserNeedsRefresh($user) {
         $now = time();
-        $userOptionsLookup = MediaWikiServices::getInstance()->getUserOptionsLookup();                                                                              
-        $timestamp = $userOptionsLookup->getIntOption($user, 'RestAuthRefreshTimestamp', $now);                                                                     
+        $userOptionsLookup = MediaWikiServices::getInstance()->getUserOptionsLookup();
+        $timestamp = $userOptionsLookup->getIntOption($user, 'RestAuthRefreshTimestamp', $now);
         if ($timestamp + self::$wgRestAuthRefresh < $now) {
             return true;
         } else {
@@ -474,7 +474,8 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
             $raDelproperties);
 
         // Handle =>options.
-        foreach($user->getOptions() as $key => $value) {
+        $userOptionsLookup = MediaWikiServices::getInstance()->getUserOptionsLookup();
+        foreach($userOptionsLookup->getOptions($user) as $key => $value) {
             if (in_array($key, self::$wgRestAuthIgnoredPreferences)) {
                 continue; // filter ignored options
             }
@@ -574,7 +575,8 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     private static function _handleUpdateOption($raProperties, $option, $value,
             &$raSetProperties, &$raDelProperties)
     {
-        $default = User::getDefaultOption($option);
+        $userOptionsLookup = MediaWikiServices::getInstance()->getUserOptionsLookup();
+        $default = $userOptionsLookup->getDefaultOption($option);
         $raProp = self::raPropertyName($option);
 
         // normalize default-value:
@@ -687,7 +689,8 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         $ra_user = new RestAuthUser(self::fnRestAuthGetConnection(), $user->getName());
 
         // used as a complete list of all options:
-        $default_options = User::getDefaultOptions();
+        $userOptionsLookup = MediaWikiServices::getInstance()->getUserOptionsLookup();
+        $default_options = $userOptionsLookup->getDefaultOptions();
 
         // get all options from the RestAuth service
         try {
