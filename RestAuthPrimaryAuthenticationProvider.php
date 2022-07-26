@@ -7,6 +7,7 @@ use StatusValue;
 use Message;
 
 use MediaWiki\MediaWikiServices;
+use MediaWiki\User\UserOptionsManager;
 
 require_once('RestAuth/restauth.php');
 require_once('RestAuthError.php');
@@ -103,11 +104,6 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
             return AuthenticationResponse::newFail(new Message("username or password is null"));
         }
 
-        $username = User::getCanonicalName( $req->username, 'usable' );
-        if ( $username === false ) {
-            return AuthenticationResponse::newFail(new Message("Could not get username"));
-        }
-
         $user = new RestAuthUser(self::fnRestAuthGetConnection(), $req->username);
         try {
             if ($user->verifyPassword($req->password)) {
@@ -115,6 +111,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
                 return AuthenticationResponse::newPass($user_cleaned);
             } else {
                 return AuthenticationResponse::newAbstain();
+                //return AuthenticationResponse::newFail(new Message("Username or Password failed."))
             }
         } catch (RestAuthException $e) {
             throw new MWRestAuthError($e);
@@ -262,7 +259,8 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     }
 
     public function providerNormalizeUsername( $username ) {
-        $name = User::getCanonicalName( $username );
+        global $wgLang;
+        $name = $wgLang->ucFirst($wgLang->lc($username));
         return $name === false ? null : $name;
     }
 
@@ -744,17 +742,15 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
                 // finally use the property from RestAuth, if the
                 // property exists as a default option:
 
-//TODO: Convert values to correct types depending on gettype($default)
-                $user->setOption($pref, $value);
-                $user->mOptionsOverrides[$pref] = $value;
+                MediaWikiServices::getInstance()->getUserOptionsManager()->setOption($user, $pref, $value);
             }
         }
 
         // update RestAuthRefreshTimestamp:
-        $user->setOption('RestAuthRefreshTimestamp', time());
+        MediaWikiServices::getInstance()->getUserOptionsManager()->setOption($user, 'RestAuthRefreshTimestamp', time());
 
         // begin saving the user to the local database:
-        $user->setOption('echo-seen-time', wfTimestamp(TS_MW, time() + $wgClockSkewFudge));
+        MediaWikiServices::getInstance()->getUserOptionsManager()->setOption($user, 'echo-seen-time', wfTimestamp(TS_MW, time() + $wgClockSkewFudge));
 
         // save user to the database:
         $user->saveSettings();
