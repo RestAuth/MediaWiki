@@ -761,7 +761,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
       * Synchronize the local group database with the remote database.
       */
     public static function refreshGroups(&$user) {
-		$services = MediaWikiServices::getInstance();
+        $services = MediaWikiServices::getInstance();
         wfDebug("- START: " . __FUNCTION__ . "\n");
         $user->load();
         $local_groups = $user->getGroups();
@@ -791,7 +791,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
                                 ),
                                 __METHOD__,
                                 array('IGNORE'));
-			$services->getUserGroupManager()->removeUserFromGroup($user, $group);
+            $services->getUserGroupManager()->removeUserFromGroup($user, $group);
         }
 
         # add new groups found in the remote database
@@ -806,7 +806,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
                     __METHOD__,
                     array('IGNORE'));
             }
-			$services->getUserGroupManager()->addUserToGroup($user, $group);
+            $services->getUserGroupManager()->addUserToGroup($user, $group);
         }
 
         # reload cache
