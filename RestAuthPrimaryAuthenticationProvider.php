@@ -761,6 +761,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
       * Synchronize the local group database with the remote database.
       */
     public static function refreshGroups(&$user) {
+		$services = MediaWikiServices::getInstance();
         wfDebug("- START: " . __FUNCTION__ . "\n");
         $user->load();
         $local_groups = $user->getGroups();
@@ -773,10 +774,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         # get database slave:
         $dbw = wfGetDB(DB_MASTER);
 
-        # remove groups no longer found in the remote database:
-        # NOTE: We do not call User::removeGroup here, because that would call the hook.
-        #    If this whould be done, this would remove the group from the RestAuth server
-        #    when loading groups from the RestAuth server, which doesn't make sense.
+        # remove groups no longer found in the remote database
         $rem_groups = array_diff($local_groups, $remote_groups);
         foreach ($rem_groups as $group) {
             $dbw->delete('user_groups',
@@ -793,13 +791,10 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
                                 ),
                                 __METHOD__,
                                 array('IGNORE'));
-            $user->removedGroup($group);
+			$services->getUserGroupManager()->removeUserFromGroup($user, $group);
         }
 
-        # add new groups found in the remote database:
-        # NOTE: We do not call User::addGroup here, because that would call the hook.
-        #    If this whould be done, this would add the group at the RestAuth server
-        #    when loading groups from the RestAuth server, which doesn't make sense.
+        # add new groups found in the remote database
         $add_groups = array_diff($remote_groups, $local_groups);
         foreach ($add_groups as $group) {
             if($user->getId()) {
@@ -811,12 +806,12 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
                     __METHOD__,
                     array('IGNORE'));
             }
-            $user->addGroup($group);
+			$services->getUserGroupManager()->addUserToGroup($user, $group);
         }
 
         # reload cache
         $user->getGroups();
-        MediaWikiServices::getInstance()->getPermissionManager()->getUserPermissions($user);
+        $services->getPermissionManager()->getUserPermissions($user);
         wfDebug("-   END: " . __FUNCTION__ . "\n");
     }
     /**
