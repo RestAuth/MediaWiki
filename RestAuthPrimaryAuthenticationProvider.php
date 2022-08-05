@@ -402,7 +402,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
             $ra_group->removeUser($user->getName());
         } catch (RestAuthException $e) {
             //TODO: catch 404 if we're out of sync with the RestAuth server
-            throw new MWRestAuthError($e);
+            //throw new MWRestAuthError($e);
         }
         return true;
     }
