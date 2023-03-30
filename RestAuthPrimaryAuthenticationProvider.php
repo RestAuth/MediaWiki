@@ -7,7 +7,6 @@ use StatusValue;
 use Message;
 
 use MediaWiki\MediaWikiServices;
-use MediaWiki\User\UserOptionsManager;
 
 require_once('RestAuth/restauth.php');
 require_once('RestAuthError.php');
@@ -374,7 +373,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     /**
     * Called when a bureaucrat adds the user to a group via Special:UserRights.
     */
-    public function fnRestAuthUserAddGroup($user, &$group) {
+    public static function fnRestAuthUserAddGroup($user, &$group) {
         if ($user->isSystemUser()) {
             return true;
         }
@@ -435,7 +434,9 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     public static function fnRestAuthUpdateUser ($user) {
         # When a user logs in, optionally fill in preferences and such.
         self::refreshGroups($user);
-        self::refreshPreferences($user);
+        try{
+            self::refreshPreferences($user);
+        }catch(\Exception $e){} // pokemon: catch them all. Also catch the pesky CAS error.
 
         # reload everything
         $user->invalidateCache();
@@ -679,7 +680,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         global $wgClockSkewFudge;
         // initialize local user:
         $user->load();
-        if (wfReadOnly()) { return; }
+        if (MediaWikiServices::getInstance()->getReadOnlyMode()->isReadOnly()) { return; }
         if (0 == $user->mId) { return; }
         wfDebug("- START: " . __FUNCTION__ . "\n");
 
