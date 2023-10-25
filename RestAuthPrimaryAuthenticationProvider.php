@@ -394,7 +394,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     /**
     * Called when a bureaucrat removes a group from a user via Special:UserRights.
     */
-    public function fnRestAuthUserRemoveGroup($user, &$group) {
+    public static function fnRestAuthUserRemoveGroup($user, &$group) {
         $conn = self::fnRestAuthGetConnection();
         $ra_group = new RestAuthGroup($conn, $group);
         try {
@@ -445,7 +445,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     /**
      * Replicate group changes to RestAuth
      */
-    public function fnRestAuthUserGroupsChanged($user, $added, $removed, $performer, $reason, $oldUGMs, $newUGMs) {
+    public static function fnRestAuthUserGroupsChanged($user, $added, $removed, $performer, $reason, $oldUGMs, $newUGMs) {
         // TODO sync groups
     }
 
@@ -633,7 +633,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
     /**
      * Create a local user on import if the corresponding RestAuth user exists
      */
-    public function fnRestAuthImportHandleUnknownUser($name) {
+    public static function fnRestAuthImportHandleUnknownUser($name) {
         // returns false if hook created a user
         // https://www.mediawiki.org/wiki/Manual:Hooks/ImportHandleUnknownUser
         $ra_user = new RestAuthUser(self::fnRestAuthGetConnection(), $name);
