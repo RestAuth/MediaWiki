@@ -765,53 +765,27 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         $services = MediaWikiServices::getInstance();
         wfDebug("- START: " . __FUNCTION__ . "\n");
         $user->load();
-        $local_groups = $user->getGroups();
+		$local_groups = $services->getUserGroupManager()->getUserGroups($user);
         $rest_groups = RestAuthGroup::getAll(self::fnRestAuthGetConnection(), $user->getName());
         $remote_groups = array();
         foreach ($rest_groups as $rest_group) {
             $remote_groups[] = $rest_group->name;
         }
 
-        # get database slave:
-        $dbw = wfGetDB(DB_MASTER);
-
         # remove groups no longer found in the remote database
         $rem_groups = array_diff($local_groups, $remote_groups);
         foreach ($rem_groups as $group) {
-            $dbw->delete('user_groups',
-                array(
-                    'ug_user'  => $user->getID(),
-                    'ug_group' => $group,
-                ),
-                __METHOD__);
-            // Remember that the user was in this group
-                        $dbw->insert('user_former_groups',
-                                array(
-                                        'ufg_user'  => $user->getID(),
-                                        'ufg_group' => $group,
-                                ),
-                                __METHOD__,
-                                array('IGNORE'));
             $services->getUserGroupManager()->removeUserFromGroup($user, $group);
         }
 
         # add new groups found in the remote database
         $add_groups = array_diff($remote_groups, $local_groups);
         foreach ($add_groups as $group) {
-            if($user->getId()) {
-                $dbw->insert('user_groups',
-                    array(
-                        'ug_user'  => $user->getID(),
-                        'ug_group' => $group,
-                    ),
-                    __METHOD__,
-                    array('IGNORE'));
-            }
             $services->getUserGroupManager()->addUserToGroup($user, $group);
         }
 
         # reload cache
-        $user->getGroups();
+		$services->getUserGroupManager()->getUserGroups($user);
         $services->getPermissionManager()->getUserPermissions($user);
         wfDebug("-   END: " . __FUNCTION__ . "\n");
     }
