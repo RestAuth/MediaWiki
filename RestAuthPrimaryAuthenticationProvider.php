@@ -765,7 +765,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         $services = MediaWikiServices::getInstance();
         wfDebug("- START: " . __FUNCTION__ . "\n");
         $user->load();
-		$local_groups = $services->getUserGroupManager()->getUserGroups($user);
+        $local_groups = $services->getUserGroupManager()->getUserGroups($user);
         $rest_groups = RestAuthGroup::getAll(self::fnRestAuthGetConnection(), $user->getName());
         $remote_groups = array();
         foreach ($rest_groups as $rest_group) {
@@ -785,7 +785,7 @@ class RestAuthPrimaryAuthenticationProvider extends AbstractPrimaryAuthenticatio
         }
 
         # reload cache
-		$services->getUserGroupManager()->getUserGroups($user);
+        $services->getUserGroupManager()->getUserGroups($user);
         $services->getPermissionManager()->getUserPermissions($user);
         wfDebug("-   END: " . __FUNCTION__ . "\n");
     }
